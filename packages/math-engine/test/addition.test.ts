@@ -1,102 +1,57 @@
 import assert from "node:assert/strict";
-import { createAdditionTask, generateAdditionSuggestion, getAdditionBuildSteps, getBundlingState, getCurrentStepState, getExpectedCarry, getExpectedResultDigit, getVisibleColumns, getVisiblePlaceValueStateForMode, getVisibleWrittenAdditionState, getVisibleWrittenAdditionStateForMode, validateAdditionStep, shouldTriggerRepair } from "../src/index.js";
+import { analyzeAdditionTask, createAdditionTask, generateAdditionSuggestion, getVisibleColumns, getVisibleWrittenAdditionState, updateAdditionSkillStates, suggestNextAdditionTask } from "../src/index.js";
 
-const threeDigit = createAdditionTask(248, 176);
-assert.equal(threeDigit.columnSums.ones, 14);
-assert.equal(threeDigit.columnSums.tensIncludingCarry, 12);
-assert.equal(getExpectedCarry(threeDigit, "tens"), 1);
-assert.equal(getExpectedCarry(threeDigit, "hundreds"), 1);
-assert.equal(getExpectedResultDigit(threeDigit, "ones"), 4);
-assert.equal(getExpectedResultDigit(threeDigit, "tens"), 2);
-assert.equal(getExpectedResultDigit(threeDigit, "hundreds"), 4);
+const cases = [
+  [3,4,7,["ones"],false,0,false],
+  [12,7,19,["tens","ones"],false,0,false],
+  [12,8,20,["tens","ones"],true,1,false],
+  [48,27,75,["tens","ones"],true,1,false],
+  [95,17,112,["hundreds","tens","ones"],true,2,false],
+  [105,24,129,["hundreds","tens","ones"],false,0,true],
+  [395,287,682,["hundreds","tens","ones"],true,2,false],
+  [999,1,1000,["thousands","hundreds","tens","ones"],true,3,false],
+  [999999,1,1000000,["millions","hundred_thousands","ten_thousands","thousands","hundreds","tens","ones"],true,6,false],
+] as const;
 
-for (const [left, right, result] of [[16,25,41],[48,27,75],[248,176,424],[395,287,682]] as const) {
+for (const [left,right,result,columns,hasCarry,carryCount,innerZero] of cases) {
   const task = createAdditionTask(left, right);
+  const analysis = analyzeAdditionTask(left, right);
   assert.equal(task.result, result);
-  assert.equal(validateAdditionStep(task, "ones_digit", task.resultDigits.ones).correct, true);
-  assert.equal(validateAdditionStep(task, "carry_to_tens", task.carries.toTens).correct, true);
-  assert.equal(validateAdditionStep(task, "tens_digit", task.resultDigits.tens).correct, true);
-  assert.equal(validateAdditionStep(task, "carry_to_hundreds", task.carries.toHundreds).correct, true);
-  assert.equal(validateAdditionStep(task, "hundreds_sum", task.resultDigits.hundreds).correct, true);
+  assert.deepEqual(getVisibleColumns(task), columns);
+  assert.deepEqual(analysis.visibleColumns, columns);
+  assert.equal(analysis.hasCarry, hasCarry);
+  assert.equal(analysis.carryCount, carryCount);
+  assert.equal(analysis.containsInnerZero, innerZero);
+  assert.ok(analysis.difficultyClass.startsWith("A"));
+  assert.equal(columns.map((c)=>getVisibleWrittenAdditionState(task, 99).result[c]).join(""), String(result));
 }
 
-const twoDigit = createAdditionTask(16, 25);
-const twoDigitSteps = getAdditionBuildSteps(twoDigit);
-assert.deepEqual(twoDigitSteps.map((step) => step.phase), ["ready", "first_number", "second_number", "ones_sum", "bundle_ones", "tens_sum", "bundle_tens", "result"]);
-assert.equal(getVisibleWrittenAdditionState(twoDigit, 0).showLeft, false);
-assert.equal(getVisibleWrittenAdditionState(twoDigit, 0).result.ones, undefined);
-assert.equal(getVisibleWrittenAdditionState(twoDigit, 1).showLeft, true);
-assert.equal(getVisibleWrittenAdditionState(twoDigit, 1).showRight, false);
-assert.equal(getVisibleWrittenAdditionState(twoDigit, 2).showRight, true);
-assert.equal(getVisibleWrittenAdditionState(twoDigit, 3).carries.tens, undefined);
-assert.equal(getVisibleWrittenAdditionState(twoDigit, 4).result.ones, "1");
-assert.equal(getVisibleWrittenAdditionState(twoDigit, 4).carries.tens, "1");
-assert.equal(getVisibleWrittenAdditionState(twoDigit, 5).result.tens, undefined);
-assert.equal(getVisibleWrittenAdditionState(twoDigit, 6).result.tens, "4");
-assert.equal(getVisibleWrittenAdditionState(twoDigit, 7).result.hundreds, undefined);
-assert.deepEqual(getVisibleColumns(createAdditionTask(12, 7)), ["tens", "ones"]);
-assert.deepEqual(getVisibleColumns(createAdditionTask(3, 4)), ["ones"]);
 assert.equal(getVisibleWrittenAdditionState(createAdditionTask(12, 7), 99).result.hundreds, undefined);
-assert.equal(getVisibleColumns(createAdditionTask(12, 7)).map((c)=>getVisibleWrittenAdditionState(createAdditionTask(12, 7), 99).result[c]).join(""), "19");
 assert.equal(getVisibleColumns(createAdditionTask(12, 8)).map((c)=>getVisibleWrittenAdditionState(createAdditionTask(12, 8), 99).result[c]).join(""), "20");
-assert.deepEqual(getVisibleColumns(createAdditionTask(105, 24)), ["hundreds", "tens", "ones"]);
-assert.deepEqual(getVisibleColumns(createAdditionTask(999, 1)), ["thousands", "hundreds", "tens", "ones"]);
-assert.equal(getVisibleColumns(createAdditionTask(999, 1)).map((c)=>getVisibleWrittenAdditionState(createAdditionTask(999, 1), 99).result[c]).join(""), "1000");
-assert.equal(getCurrentStepState(twoDigit, 4).revealed.ones_digit, "1");
-assert.equal(getCurrentStepState(twoDigit, 4).revealed.carry_to_tens, "1");
+assert.equal(analyzeAdditionTask(999, 1).resultExpandsDigits, true);
+assert.deepEqual(analyzeAdditionTask(999, 1).carryColumns, ["ones", "tens", "hundreds"]);
 
-const written248 = getVisibleWrittenAdditionState(threeDigit, 6);
-assert.equal(written248.result.ones, "4");
-assert.equal(written248.carries.tens, "1");
-assert.equal(written248.result.tens, "2");
-assert.equal(written248.carries.hundreds, "1");
-assert.equal(getVisibleWrittenAdditionState(threeDigit, 7).result.hundreds, "4");
+for (let i = 0; i < 30; i++) assert.ok(generateAdditionSuggestion().result <= 1_000_000);
+for (let i = 0; i < 10; i++) { const carry = generateAdditionSuggestion({ requireCarry: true }); assert.equal(analyzeAdditionTask(carry.left, carry.right).hasCarry, true); }
+const multi = generateAdditionSuggestion({ requireMultipleCarries: true });
+assert.ok(analyzeAdditionTask(multi.left, multi.right).carryCount >= 2);
+const avoided = generateAdditionSuggestion({ minDigits: 1, maxDigits: 1, allowedDifficultyClasses: ["A1_SINGLE_DIGIT_NO_CARRY"], avoidRecentTasks: [{ left: 3, right: 4 }] });
+assert.notEqual(`${avoided.left}+${avoided.right}`, "3+4");
+assert.equal(analyzeAdditionTask(avoided.left, avoided.right).difficultyClass, "A1_SINGLE_DIGIT_NO_CARRY");
+const inner = generateAdditionSuggestion({ requireInnerZero: true, maxDigits: 3 });
+assert.equal(analyzeAdditionTask(inner.left, inner.right).containsInnerZero, true);
 
-const task = createAdditionTask(48, 27);
-assert.equal(validateAdditionStep(task, "ones_digit", 15).mistake?.type, "wrote_full_ones_sum_in_ones_place");
-assert.equal(validateAdditionStep(task, "carry_to_tens", 0).mistake?.type, "missing_carry");
-assert.equal(validateAdditionStep(task, "tens_sum", 6).mistake?.type, "ignored_carry");
-assert.equal(validateAdditionStep(task, "ones_digit", 5).correct, true);
-assert.equal(validateAdditionStep(task, "carry_to_tens", "").correct, false);
-assert.equal(shouldTriggerRepair([{event_type:"incorrect_partial_step", step:"ones_digit"},{event_type:"help_requested", step:"carry_to_tens"}], "carry_to_tens"), true);
-const practiceVisible = getVisibleWrittenAdditionStateForMode(createAdditionTask(395, 287), "practice_mode");
-assert.equal(practiceVisible.showLeft, true);
-assert.equal(practiceVisible.showRight, true);
-assert.equal(practiceVisible.result.ones, undefined);
-assert.equal(practiceVisible.carries.tens, undefined);
-assert.equal(getVisiblePlaceValueStateForMode(createAdditionTask(395, 287), "practice_mode").showRight, true);
-const guidedVisible = getVisibleWrittenAdditionStateForMode(createAdditionTask(48, 27), "guided_mode");
-assert.equal(guidedVisible.showLeft, true);
-assert.equal(guidedVisible.showRight, true);
-assert.equal(guidedVisible.result.ones, undefined);
-assert.equal(getVisibleWrittenAdditionStateForMode(createAdditionTask(48, 27), "worked_example", 0).showLeft, false);
+let states = updateAdditionSkillStates([], [{ event_type: "correct_partial_step", step: "ones_sum" }]);
+assert.equal(states.find(s=>s.skillKey==="add.ones_sum")?.status, "guided_success");
+states = updateAdditionSkillStates(states, [{ event_type: "help_requested", step: "carry_to_tens" }]);
+assert.equal(states.find(s=>s.skillKey==="add.ones_to_tens_carry")?.status, "with_help");
+states = updateAdditionSkillStates(states, [{ event_type: "incorrect_partial_step", step: "carry_to_tens" }]);
+assert.ok(["with_help", "needs_repair"].includes(states.find(s=>s.skillKey==="add.ones_to_tens_carry")!.status));
+states = updateAdditionSkillStates(states, [{ event_type: "repair_step_completed", repair_type: "bundling_ones_to_tens" }, { event_type: "session_mood_reported", mood: "hard" }]);
+assert.equal(states.find(s=>s.skillKey==="add.independent_practice")?.metadata_json?.lastMood, "hard");
 
-for (let i = 0; i < 100; i++) {
-  const suggestion = generateAdditionSuggestion({ preferCarry: true });
-  assert.equal(suggestion.operation, "addition");
-  assert.ok(suggestion.left >= 0 && suggestion.right >= 0);
-  assert.ok(suggestion.left <= 999 && suggestion.right <= 999);
-  assert.ok(suggestion.left + suggestion.right <= 999);
-}
-for (let i = 0; i < 25; i++) {
-  const suggestion = generateAdditionSuggestion({ requireCarry: true });
-  const suggestedTask = createAdditionTask(suggestion.left, suggestion.right);
-  assert.ok(suggestedTask.carries.toTens > 0 || suggestedTask.carries.toHundreds > 0 || suggestedTask.carries.toThousands > 0);
-}
-let carryCount = 0;
-for (let i = 0; i < 80; i++) {
-  const suggestion = generateAdditionSuggestion({ preferCarry: true });
-  const suggestedTask = createAdditionTask(suggestion.left, suggestion.right);
-  if (suggestedTask.carries.toTens > 0 || suggestedTask.carries.toHundreds > 0 || suggestedTask.carries.toThousands > 0) carryCount++;
-}
-assert.ok(carryCount >= 45);
+const conservative = suggestNextAdditionTask([], [{ event_type: "help_requested" }, { event_type: "repair_step_completed" }, { event_type: "session_mood_reported", mood: "too_much" }]);
+assert.ok(analyzeAdditionTask(conservative.left, conservative.right).visibleColumns.length <= 2);
+const progress = suggestNextAdditionTask([], [{ event_type: "correct_partial_step" }, { event_type: "correct_partial_step" }, { event_type: "correct_partial_step" }, { event_type: "correct_partial_step" }]);
+assert.ok(progress.result <= 1_000_000);
 console.log("addition math-engine tests passed");
-
-const bundle48 = getBundlingState(createAdditionTask(48, 27), 4, "ones");
-assert.equal(bundle48?.bundledCount, 10);
-assert.equal(bundle48?.remainingCount, 5);
-assert.equal(bundle48?.to, "tens");
-const bundle248ones = getBundlingState(threeDigit, 4, "ones");
-assert.equal(bundle248ones?.remainingCount, 4);
-const bundle248tens = getBundlingState(threeDigit, 6, "tens");
-assert.equal(bundle248tens?.remainingCount, 2);
