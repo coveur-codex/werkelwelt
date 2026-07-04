@@ -101,3 +101,42 @@ export interface PaperTransferTask {
   assignedAt: string;
   reviewedAt?: string;
 }
+
+/** Operation names used by MVP learning events. */
+export type Operation = "addition";
+
+/** MVP modes for addition with carrying. */
+export type LearningMode = "worked_example" | "guided_mode" | "practice_mode";
+
+/** Granular MVP learning telemetry event names. */
+export type AdditionLearningEventType =
+  | "task_started"
+  | "worked_example_started"
+  | "worked_example_completed"
+  | "guided_started"
+  | "practice_started"
+  | "correct_partial_step"
+  | "incorrect_partial_step"
+  | "help_requested"
+  | "repair_started"
+  | "repair_step_completed"
+  | "task_completed"
+  | "task_abandoned";
+
+/** Persistable MVP learning event shape; repository storage can later move to PostgreSQL unchanged. */
+export interface AdditionLearningEvent {
+  id: EntityId;
+  child_profile_id: EntityId;
+  created_at: string;
+  operation: Operation;
+  mode?: LearningMode;
+  event_type: AdditionLearningEventType;
+  step?: string;
+  task_left?: number;
+  task_right?: number;
+  expected_value?: number;
+  actual_value?: number | null;
+  help_level?: number;
+  repair_type?: "bundling_ones_to_tens" | "carry_to_tens_column";
+  metadata_json?: Record<string, unknown>;
+}
