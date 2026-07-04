@@ -10,26 +10,69 @@ Voraussetzungen:
 - npm (oder ein kompatibler Package-Manager)
 - Docker und Docker Compose für lokale Infrastruktur
 
-Geplanter Ablauf für die lokale Entwicklung:
-
 ```bash
 npm install
 npm run dev
 ```
 
-Die konkreten App- und Package-Skripte werden ergänzt, sobald die einzelnen Services implementiert werden.
+## Lokale Entwicklung mit Docker Compose
 
-## Docker-Start
+Das lokale Entwicklungssetup liegt in `compose.dev.yml` im Repository-Root. Es startet die Services `web`, `api`, `worker`, `postgres`, `redis` und `minio`.
 
-Die Docker-Konfiguration wird unter `infra/docker`, `infra/caddy` und `infra/postgres` vorbereitet.
+| Service | Erreichbarkeit |
+| --- | --- |
+| Web | <http://localhost:3000> |
+| Web-Healthcheck | <http://localhost:3000/api/health> |
+| API | <http://localhost:4000> |
+| API-Healthcheck | <http://localhost:4000/health> |
+| PostgreSQL | intern als `postgres:5432` |
+| Redis | intern als `redis:6379` |
+| MinIO API | intern als `minio:9000` |
+| MinIO Console | <http://localhost:9001> |
 
-Geplanter Start:
+Die Beispielwerte in `.env.example` sind ausschließlich lokale Entwicklungswerte und keine produktiven Secrets.
+
+### Starten
 
 ```bash
-docker compose up --build
+docker compose -f compose.dev.yml up --build
 ```
 
-Die Compose-Dateien und Service-Images werden ergänzt, sobald Web-App, API, Worker und Infrastruktur konkretisiert sind.
+### Stoppen
+
+```bash
+docker compose -f compose.dev.yml down
+```
+
+### Logs anschauen
+
+Alle Logs:
+
+```bash
+docker compose -f compose.dev.yml logs -f
+```
+
+Logs eines einzelnen Services, zum Beispiel API:
+
+```bash
+docker compose -f compose.dev.yml logs -f api
+```
+
+### Volumes löschen
+
+PostgreSQL- und MinIO-Daten liegen in den benannten Volumes `postgres_data` und `minio_data`. Zum Löschen aller Compose-Volumes:
+
+```bash
+docker compose -f compose.dev.yml down -v
+```
+
+## Datenmodell und Migrationen
+
+Die Datenmodell-Vorbereitung ist in `docs/architecture/data-model.md` dokumentiert. Migrationen liegen in `apps/api/migrations` und werden mit `node-pg-migrate` ausgeführt.
+
+```bash
+docker compose -f compose.dev.yml run --rm api npm run db:migrate
+```
 
 ## Geplante Service-Übersicht
 
