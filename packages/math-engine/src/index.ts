@@ -56,16 +56,20 @@ export type AdditionDifficultyClass =
 
 export type SkillStatus = "unseen" | "introduced" | "worked_example_seen" | "guided_success" | "with_help" | "independent_with_material" | "independent_without_material" | "stable" | "needs_repair";
 export type SessionMood = "easy" | "ok" | "hard" | "too_much";
+export type DifficultyDirection = "easier" | "similar" | "harder";
+export type DifficultyApplicationReason = "allowed" | "already_easiest" | "kept_similar_due_to_recent_help_or_mood";
 
 export interface AdditionTaskAnalysis { operation: "addition"; left: number; right: number; result: number; visibleColumns: PlaceValueColumn[]; maxColumn: PlaceValueColumn; hasCarry: boolean; carryColumns: PlaceValueColumn[]; carryCount: number; resultExpandsDigits: boolean; containsInnerZero: boolean; resultContainsZero: boolean; difficultyClass: AdditionDifficultyClass; }
 export interface SkillState { skillKey: string; status: SkillStatus; evidenceCount: number; successCount: number; helpCount: number; repairCount: number; lastPracticedAt?: string; metadata_json?: Record<string, unknown>; }
-export interface AdditionLearningEventLike { event_type?: string; type?: string; step?: string; repair_type?: string; repairType?: string; mood?: SessionMood; task_left?: number; task_right?: number; difficulty_class?: AdditionDifficultyClass | string; created_at?: string; }
+export interface AdditionLearningEventLike { event_type?: string; type?: string; step?: string; repair_type?: string; repairType?: string; mood?: SessionMood; task_left?: number; task_right?: number; difficulty_class?: AdditionDifficultyClass | string; current_difficulty_class?: AdditionDifficultyClass | string; requested_direction?: DifficultyDirection | string; applied_difficulty_class?: AdditionDifficultyClass | string; reason?: string; created_at?: string; }
 
 export interface AdditionSuggestionOptions {
   maxResult?: number;
   maxValue?: number;
   minDigits?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   maxDigits?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  currentDifficultyClass?: AdditionDifficultyClass;
+  direction?: DifficultyDirection;
   allowedDifficultyClasses?: AdditionDifficultyClass[];
   preferCarry?: boolean;
   requireCarry?: boolean;
@@ -77,6 +81,31 @@ export interface AdditionSuggestionOptions {
 }
 
 export const ADDITION_MAX_RESULT = 1_000_000;
+
+export const additionDifficultyOrder: AdditionDifficultyClass[] = [
+  "A1_SINGLE_DIGIT_NO_CARRY",
+  "A2_SINGLE_DIGIT_WITH_CARRY",
+  "A3_TWO_DIGIT_NO_CARRY",
+  "A4_TWO_DIGIT_ONE_CARRY",
+  "A5_TWO_DIGIT_RESULT_EXPANDS",
+  "A6_THREE_DIGIT_NO_CARRY",
+  "A7_THREE_DIGIT_ONE_CARRY",
+  "A8_THREE_DIGIT_MULTIPLE_CARRIES",
+  "A9_WITH_INNER_ZERO",
+  "A10_THOUSANDS_NO_CARRY",
+  "A11_THOUSANDS_WITH_CARRY",
+  "A12_TEN_THOUSANDS",
+  "A13_HUNDRED_THOUSANDS",
+  "A14_UP_TO_ONE_MILLION",
+];
+
+export function compareAdditionDifficulty(a: AdditionDifficultyClass, b: AdditionDifficultyClass): number { return additionDifficultyOrder.indexOf(a) - additionDifficultyOrder.indexOf(b); }
+export function nextAdditionDifficultyClass(current: AdditionDifficultyClass, direction: DifficultyDirection): AdditionDifficultyClass {
+  const index = Math.max(0, additionDifficultyOrder.indexOf(current));
+  if (direction === "easier") return additionDifficultyOrder[Math.max(0, index - 1)]!;
+  if (direction === "harder") return additionDifficultyOrder[Math.min(additionDifficultyOrder.length - 1, index + 1)]!;
+  return current;
+}
 
 export interface VisiblePlaceValueState {
   showLeft: boolean;
@@ -182,13 +211,16 @@ export function getActiveColumnForMode(task: AdditionTask, mode: AdditionMode, s
 }
 
 export function generateAdditionSuggestion(options: AdditionSuggestionOptions = {}): Pick<AdditionTask, "operation" | "left" | "right" | "result"> {
+  const directionClasses = difficultyClassesForDirection(options.currentDifficultyClass, options.direction);
+  const effectiveAllowed = options.allowedDifficultyClasses ?? directionClasses;
+  const currentColumns = options.currentDifficultyClass ? visibleColumnsForDifficulty(options.currentDifficultyClass) : undefined;
   const maxResult = Math.min(options.maxResult ?? (options.allowResultAbove999 ? 1000 : ADDITION_MAX_RESULT), ADDITION_MAX_RESULT);
-  const minDigits = options.minDigits ?? 2;
-  const maxDigits = options.maxDigits ?? 3;
+  const minDigits = options.minDigits ?? (currentColumns ?? (options.direction === "easier" ? 1 : 2));
+  const maxDigits = options.maxDigits ?? Math.min(7, Math.max(1, currentColumns ?? 3) + (options.direction === "harder" ? 1 : 0)) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
   const minValue = minDigits <= 1 ? 0 : 10 ** (minDigits - 1);
   const maxByDigits = Math.min(10 ** maxDigits - 1, options.maxValue ?? maxResult, maxResult);
   const avoid = new Set((options.avoidRecentTasks ?? []).map((t) => `${t.left}+${t.right}`));
-  const preferCarry = options.preferCarry ?? true;
+  const preferCarry = options.preferCarry ?? options.direction !== "easier";
   const matches = (left: number, right: number) => {
     if (!isAdditionTaskInScope(left, right) || left + right > maxResult) return false;
     const analysis = analyzeAdditionTask(left, right);
@@ -197,7 +229,7 @@ export function generateAdditionSuggestion(options: AdditionSuggestionOptions = 
     if (options.requireMultipleCarries && analysis.carryCount < 2) return false;
     if (options.requireInnerZero && !analysis.containsInnerZero) return false;
     if (options.maxVisibleColumns && analysis.visibleColumns.length > options.maxVisibleColumns) return false;
-    if (options.allowedDifficultyClasses?.length && !options.allowedDifficultyClasses.includes(analysis.difficultyClass)) return false;
+    if (effectiveAllowed?.length && !effectiveAllowed.includes(analysis.difficultyClass)) return false;
     return true;
   };
   for (let i = 0; i < 2500; i++) {
@@ -207,6 +239,24 @@ export function generateAdditionSuggestion(options: AdditionSuggestionOptions = 
   }
   for (let left = minValue; left <= maxByDigits; left++) for (let right = 0; right <= Math.min(maxByDigits, maxResult - left); right++) if (matches(left, right)) return { operation: "addition", left, right, result: left + right };
   throw new Error("NO_ADDITION_SUGGESTION_IN_SCOPE");
+}
+
+function difficultyClassesForDirection(current: AdditionDifficultyClass | undefined, direction: DifficultyDirection | undefined): AdditionDifficultyClass[] | undefined {
+  if (!current || !direction) return undefined;
+  const currentIndex = Math.max(0, additionDifficultyOrder.indexOf(current));
+  if (direction === "easier") return [additionDifficultyOrder[Math.max(0, currentIndex - 1)]!, current];
+  if (direction === "harder") return [current, additionDifficultyOrder[Math.min(additionDifficultyOrder.length - 1, currentIndex + 1)]!];
+  return [current];
+}
+
+function visibleColumnsForDifficulty(difficulty: AdditionDifficultyClass): 1 | 2 | 3 | 4 | 5 | 6 | 7 {
+  if (difficulty === "A1_SINGLE_DIGIT_NO_CARRY" || difficulty === "A2_SINGLE_DIGIT_WITH_CARRY") return 1;
+  if (difficulty === "A3_TWO_DIGIT_NO_CARRY" || difficulty === "A4_TWO_DIGIT_ONE_CARRY" || difficulty === "A5_TWO_DIGIT_RESULT_EXPANDS") return 2;
+  if (difficulty === "A6_THREE_DIGIT_NO_CARRY" || difficulty === "A7_THREE_DIGIT_ONE_CARRY" || difficulty === "A8_THREE_DIGIT_MULTIPLE_CARRIES" || difficulty === "A9_WITH_INNER_ZERO") return 3;
+  if (difficulty === "A10_THOUSANDS_NO_CARRY" || difficulty === "A11_THOUSANDS_WITH_CARRY") return 4;
+  if (difficulty === "A12_TEN_THOUSANDS") return 5;
+  if (difficulty === "A13_HUNDRED_THOUSANDS") return 6;
+  return 7;
 }
 
 export function getVisibleWrittenAdditionState(task: AdditionTask, stepIndex: number): VisibleWrittenAdditionState {
@@ -312,6 +362,8 @@ function classifyAdditionDifficulty(a: Omit<AdditionTaskAnalysis, "operation" | 
   if (d >= 5) return "A12_TEN_THOUSANDS";
   if (d >= 4) return a.hasCarry ? "A11_THOUSANDS_WITH_CARRY" : "A10_THOUSANDS_NO_CARRY";
   if (a.containsInnerZero) return "A9_WITH_INNER_ZERO";
+  if (a.left < 10 && a.right < 10) return a.hasCarry ? "A2_SINGLE_DIGIT_WITH_CARRY" : "A1_SINGLE_DIGIT_NO_CARRY";
+  if (Math.max(a.left, a.right) < 100 && a.resultExpandsDigits) return "A5_TWO_DIGIT_RESULT_EXPANDS";
   if (d <= 1) return a.hasCarry ? "A2_SINGLE_DIGIT_WITH_CARRY" : "A1_SINGLE_DIGIT_NO_CARRY";
   if (d === 2) return a.resultExpandsDigits ? "A5_TWO_DIGIT_RESULT_EXPANDS" : a.carryCount === 1 ? "A4_TWO_DIGIT_ONE_CARRY" : "A3_TWO_DIGIT_NO_CARRY";
   if (a.carryCount > 1 || a.resultExpandsDigits) return "A8_THREE_DIGIT_MULTIPLE_CARRIES";
@@ -337,13 +389,39 @@ export function updateAdditionSkillStates(previousStates: SkillState[], learning
 }
 
 export function suggestNextAdditionTask(childSkillStates: SkillState[], recentEvents: AdditionLearningEventLike[], options: AdditionSuggestionOptions = {}) {
+  const directional = options.direction && options.currentDifficultyClass ? suggestAdditionTaskByDifficultyDirection({ currentDifficultyClass: options.currentDifficultyClass, childSkillStates, recentEvents, direction: options.direction, options }) : undefined;
+  if (directional) return directional.task;
   const helpOrRepair = recentEvents.filter((e) => e.event_type === "help_requested" || e.event_type === "repair_step_completed" || e.event_type === "incorrect_partial_step").length;
   const successes = recentEvents.filter((e) => e.event_type === "correct_partial_step").length;
-  const mood = recentEvents.find((e) => e.event_type === "session_mood_reported")?.mood;
+  const mood = latestMood(recentEvents);
   const conservative = helpOrRepair >= 2 || mood === "hard" || mood === "too_much";
   const allowedDifficultyClasses = options.allowedDifficultyClasses ?? (conservative ? ["A3_TWO_DIGIT_NO_CARRY", "A4_TWO_DIGIT_ONE_CARRY"] : successes >= 4 ? ["A4_TWO_DIGIT_ONE_CARRY", "A5_TWO_DIGIT_RESULT_EXPANDS", "A6_THREE_DIGIT_NO_CARRY"] : ["A3_TWO_DIGIT_NO_CARRY", "A4_TWO_DIGIT_ONE_CARRY"]);
   return generateAdditionSuggestion({ ...options, allowedDifficultyClasses, preferCarry: !conservative, ...(conservative ? { maxVisibleColumns: 2 } : {}) });
 }
+
+export function suggestAdditionTaskByDifficultyDirection(input: { currentDifficultyClass: AdditionDifficultyClass; childSkillStates?: SkillState[]; recentEvents?: AdditionLearningEventLike[]; direction: DifficultyDirection; options?: AdditionSuggestionOptions; }): { task: Pick<AdditionTask, "operation" | "left" | "right" | "result">; appliedDifficultyClass: AdditionDifficultyClass; reason: DifficultyApplicationReason } {
+  const { currentDifficultyClass, direction } = input;
+  const recentEvents = input.recentEvents ?? [];
+  const states = input.childSkillStates ?? [];
+  const blocked = direction === "harder" && shouldKeepSimilarForSafety(states, recentEvents);
+  const targetDirection = blocked ? "similar" : direction;
+  const targetClass = nextAdditionDifficultyClass(currentDifficultyClass, targetDirection);
+  const reason: DifficultyApplicationReason = blocked ? "kept_similar_due_to_recent_help_or_mood" : direction === "easier" && targetClass === currentDifficultyClass ? "already_easiest" : "allowed";
+  const allowedDifficultyClasses = targetDirection === "easier" ? [targetClass, currentDifficultyClass] : [targetClass];
+  const task = generateAdditionSuggestion({ ...(input.options ?? {}), direction: targetDirection, currentDifficultyClass, allowedDifficultyClasses, maxResult: Math.min(input.options?.maxResult ?? ADDITION_MAX_RESULT, ADDITION_MAX_RESULT), preferCarry: targetDirection !== "easier" });
+  return { task, appliedDifficultyClass: analyzeAdditionTask(task.left, task.right).difficultyClass, reason };
+}
+
+function shouldKeepSimilarForSafety(states: SkillState[], recentEvents: AdditionLearningEventLike[]): boolean {
+  const mood = latestMood(recentEvents);
+  if (mood === "hard" || mood === "too_much") return true;
+  const recentHelp = recentEvents.filter((e) => e.event_type === "help_requested" || e.event_type === "repair_step_completed" || e.event_type === "incorrect_partial_step").length;
+  if (recentHelp >= 2) return true;
+  const central = new Set(["add.ones_to_tens_carry", "add.tens_sum_with_carry", "add.multi_carry"]);
+  return states.some((s) => central.has(s.skillKey) && (s.status === "needs_repair" || s.status === "with_help"));
+}
+
+function latestMood(recentEvents: AdditionLearningEventLike[]): SessionMood | undefined { return recentEvents.find((e) => e.event_type === "session_mood_reported")?.mood; }
 
 function skillKeyForEvent(event: AdditionLearningEventLike): string | undefined {
   const step = event.step;

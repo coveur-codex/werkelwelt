@@ -17,6 +17,10 @@ export interface RecordLearningEventInput {
   repair_type?: "bundling_ones_to_tens" | "carry_to_tens_column";
   difficulty_class?: string;
   mood?: "easy" | "ok" | "hard" | "too_much";
+  requested_direction?: "easier" | "similar" | "harder";
+  current_difficulty_class?: string;
+  applied_difficulty_class?: string;
+  reason?: string;
   metadata_json?: Record<string, unknown>;
 }
 
@@ -56,6 +60,12 @@ export function summarizeLearningEvents(events: AdditionLearningEvent[]) {
     mood: events.find((event) => event.event_type === "session_mood_reported")?.mood,
     frequentDifficulty: mostFrequent(events.map((event) => event.difficulty_class).filter(Boolean) as string[]),
     recentTasks: Array.from(new Set(events.filter((event) => event.task_left !== undefined && event.task_right !== undefined).map((event) => `${event.task_left} + ${event.task_right}`))).slice(0, 5),
+    difficultyRequests: {
+      easier: events.filter((event) => event.event_type === "difficulty_requested" && event.requested_direction === "easier").length,
+      similar: events.filter((event) => event.event_type === "difficulty_requested" && event.requested_direction === "similar").length,
+      harder: events.filter((event) => event.event_type === "difficulty_requested" && event.requested_direction === "harder").length,
+    },
+    protectedHarder: events.filter((event) => event.event_type === "difficulty_applied" && event.requested_direction === "harder" && event.reason === "kept_similar_due_to_recent_help_or_mood").length,
   };
 }
 
