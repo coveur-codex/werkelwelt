@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { analyzeAdditionTask, createAdditionTask, generateAdditionSuggestion, getVisibleColumns, getVisibleWrittenAdditionState, updateAdditionSkillStates, suggestNextAdditionTask } from "../src/index.js";
+import { analyzeAdditionTask, createAdditionTask, generateAdditionSuggestion, getVisibleColumns, getVisibleWrittenAdditionState, getVisibleWrittenAdditionStateForMode, updateAdditionSkillStates, suggestNextAdditionTask } from "../src/index.js";
 
 const cases = [
   [3,4,7,["ones"],false,0,false],
@@ -30,6 +30,14 @@ assert.equal(getVisibleWrittenAdditionState(createAdditionTask(12, 7), 99).resul
 assert.equal(getVisibleColumns(createAdditionTask(12, 8)).map((c)=>getVisibleWrittenAdditionState(createAdditionTask(12, 8), 99).result[c]).join(""), "20");
 assert.equal(analyzeAdditionTask(999, 1).resultExpandsDigits, true);
 assert.deepEqual(analyzeAdditionTask(999, 1).carryColumns, ["ones", "tens", "hundreds"]);
+
+const zeroCarryPractice = createAdditionTask(176, 291);
+const zeroCarryState = getVisibleWrittenAdditionStateForMode(zeroCarryPractice, "practice_mode", 0, { ones_digit: "7", carry_to_tens: "0", tens_digit: "6", carry_to_hundreds: "1", hundreds_sum: "4" });
+assert.equal(zeroCarryState.result.ones, "7");
+assert.equal(zeroCarryState.carries.tens, "0");
+assert.equal(zeroCarryState.result.tens, "6");
+assert.equal(zeroCarryState.carries.hundreds, "1");
+assert.equal(zeroCarryState.result.hundreds, "4");
 
 for (let i = 0; i < 30; i++) assert.ok(generateAdditionSuggestion().result <= 1_000_000);
 for (let i = 0; i < 10; i++) { const carry = generateAdditionSuggestion({ requireCarry: true }); assert.equal(analyzeAdditionTask(carry.left, carry.right).hasCarry, true); }

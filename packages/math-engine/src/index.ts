@@ -157,13 +157,13 @@ export function getVisibleWrittenAdditionStateForMode(task: AdditionTask, mode: 
   if (mode === "worked_example") return getVisibleWrittenAdditionState(task, stepIndex);
   const result: Partial<Record<AdditionColumn, string>> = {};
   const carries: Partial<Record<"thousands" | "hundreds" | "tens", string>> = {};
-  if (mode === "guided_mode") {
-    if (revealed.ones_digit) result.ones = revealed.ones_digit;
-    if (revealed.carry_to_tens) carries.tens = revealed.carry_to_tens;
-    if (revealed.tens_digit) result.tens = revealed.tens_digit;
-    if (revealed.carry_to_hundreds) carries.hundreds = revealed.carry_to_hundreds;
-    if (revealed.hundreds_sum) result.hundreds = revealed.hundreds_sum;
-    if (revealed.final_result) {
+  if (mode === "guided_mode" || mode === "practice_mode") {
+    if (revealed.ones_digit !== undefined) result.ones = revealed.ones_digit;
+    if (revealed.carry_to_tens !== undefined) carries.tens = revealed.carry_to_tens;
+    if (revealed.tens_digit !== undefined) result.tens = revealed.tens_digit;
+    if (revealed.carry_to_hundreds !== undefined) carries.hundreds = revealed.carry_to_hundreds;
+    if (revealed.hundreds_sum !== undefined) result.hundreds = revealed.hundreds_sum;
+    if (revealed.final_result !== undefined) {
       for (const column of getVisibleColumns(task)) result[column] = String(task.resultDigits[column]);
     }
   }
