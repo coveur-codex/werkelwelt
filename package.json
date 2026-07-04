@@ -8,8 +8,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "echo \"No development services configured yet.\"",
-    "build": "echo \"No build targets configured yet.\"",
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "echo \"No tests configured yet.\""
   },
   "devDependencies": {
