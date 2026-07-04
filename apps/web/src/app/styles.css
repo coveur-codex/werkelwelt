@@ -276,3 +276,12 @@ button.secondary { background: #e7dcc9; color: #31443b; }
 .completion-panel { align-items: center; }
 .mood-card { display: grid; gap: .35rem; margin-top: .35rem; }
 .mood-card h2 { font-size: 1rem; margin: 0; }
+
+.difficulty-card .button-row,
+.mood-card .button-row {
+  flex-wrap: nowrap;
+}
+.difficulty-card button,
+.mood-card button {
+  white-space: nowrap;
+}

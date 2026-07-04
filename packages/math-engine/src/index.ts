@@ -407,7 +407,7 @@ export function suggestAdditionTaskByDifficultyDirection(input: { currentDifficu
   const targetDirection = blocked ? "similar" : direction;
   const targetClass = nextAdditionDifficultyClass(currentDifficultyClass, targetDirection);
   const reason: DifficultyApplicationReason = blocked ? "kept_similar_due_to_recent_help_or_mood" : direction === "easier" && targetClass === currentDifficultyClass ? "already_easiest" : "allowed";
-  const allowedDifficultyClasses = targetDirection === "easier" ? [targetClass, currentDifficultyClass] : [targetClass];
+  const allowedDifficultyClasses = [targetClass];
   const task = generateAdditionSuggestion({ ...(input.options ?? {}), direction: targetDirection, currentDifficultyClass, allowedDifficultyClasses, maxResult: Math.min(input.options?.maxResult ?? ADDITION_MAX_RESULT, ADDITION_MAX_RESULT), preferCarry: targetDirection !== "easier" });
   return { task, appliedDifficultyClass: analyzeAdditionTask(task.left, task.right).difficultyClass, reason };
 }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { additionDifficultyOrder, analyzeAdditionTask, compareAdditionDifficulty, createAdditionTask, generateAdditionSuggestion, getVisibleColumns, getVisibleWrittenAdditionState, getVisibleWrittenAdditionStateForMode, updateAdditionSkillStates, suggestAdditionTaskByDifficultyDirection, suggestNextAdditionTask } from "../src/index.js";
+import { additionDifficultyOrder, analyzeAdditionTask, createAdditionTask, generateAdditionSuggestion, getVisibleColumns, getVisibleWrittenAdditionState, getVisibleWrittenAdditionStateForMode, updateAdditionSkillStates, suggestAdditionTaskByDifficultyDirection, suggestNextAdditionTask } from "../src/index.js";
 
 const cases = [
   [3,4,7,["ones"],false,0,false],
@@ -69,7 +69,7 @@ assert.equal(additionDifficultyOrder[0], "A1_SINGLE_DIGIT_NO_CARRY");
 assert.equal(additionDifficultyOrder.at(-1), "A14_UP_TO_ONE_MILLION");
 
 const easier = suggestAdditionTaskByDifficultyDirection({ currentDifficultyClass: "A4_TWO_DIGIT_ONE_CARRY", direction: "easier", recentEvents: [], options: { avoidRecentTasks: [{ left: 48, right: 27 }] } });
-assert.ok(compareAdditionDifficulty(easier.appliedDifficultyClass, "A4_TWO_DIGIT_ONE_CARRY") <= 0);
+assert.equal(easier.appliedDifficultyClass, "A3_TWO_DIGIT_NO_CARRY");
 assert.ok(easier.task.result <= 1_000_000);
 assert.notEqual(`${easier.task.left}+${easier.task.right}`, "48+27");
 
@@ -78,8 +78,7 @@ assert.equal(similar.appliedDifficultyClass, "A4_TWO_DIGIT_ONE_CARRY");
 assert.notEqual(`${similar.task.left}+${similar.task.right}`, "48+27");
 
 const harder = suggestAdditionTaskByDifficultyDirection({ currentDifficultyClass: "A1_SINGLE_DIGIT_NO_CARRY", direction: "harder", recentEvents: [{ event_type: "session_mood_reported", mood: "easy" }] });
-assert.ok(compareAdditionDifficulty(harder.appliedDifficultyClass, "A2_SINGLE_DIGIT_WITH_CARRY") <= 0);
-assert.ok(compareAdditionDifficulty(harder.appliedDifficultyClass, "A1_SINGLE_DIGIT_NO_CARRY") >= 0);
+assert.equal(harder.appliedDifficultyClass, "A2_SINGLE_DIGIT_WITH_CARRY");
 
 const hardMood = suggestAdditionTaskByDifficultyDirection({ currentDifficultyClass: "A4_TWO_DIGIT_ONE_CARRY", direction: "harder", recentEvents: [{ event_type: "session_mood_reported", mood: "hard" }] });
 assert.equal(hardMood.reason, "kept_similar_due_to_recent_help_or_mood");
@@ -92,5 +91,5 @@ const repairBlocked = suggestAdditionTaskByDifficultyDirection({ currentDifficul
 assert.equal(repairBlocked.reason, "kept_similar_due_to_recent_help_or_mood");
 
 const stableAllowed = suggestAdditionTaskByDifficultyDirection({ currentDifficultyClass: "A4_TWO_DIGIT_ONE_CARRY", direction: "harder", childSkillStates: [{ skillKey: "add.ones_to_tens_carry", status: "stable", evidenceCount: 5, successCount: 5, helpCount: 0, repairCount: 0 }], recentEvents: [] });
-assert.ok(compareAdditionDifficulty(stableAllowed.appliedDifficultyClass, "A5_TWO_DIGIT_RESULT_EXPANDS") <= 0);
+assert.equal(stableAllowed.appliedDifficultyClass, "A5_TWO_DIGIT_RESULT_EXPANDS");
 assert.ok(stableAllowed.task.result <= 1_000_000);
