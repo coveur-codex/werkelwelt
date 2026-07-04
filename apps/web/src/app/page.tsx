@@ -1,15 +1,18 @@
 const areas = [
   {
     title: "Kindbereich",
-    text: "Ein geschützter Raum für spätere Übungen, Entdeckungen und Erfolgserlebnisse.",
+    text: "Starte die Plus-Werkstatt für schriftliche Addition mit Übertrag.",
+    href: "/kind/addition",
   },
   {
     title: "Elternbereich",
-    text: "Ein ruhiger Platz für Begleitung, Einblicke und zukünftige Einstellungen.",
+    text: "Sieh die letzten Lernereignisse und sanfte Zusammenfassungen.",
+    href: "/parent/events",
   },
   {
     title: "Aufgabe vorführen",
-    text: "Eine konkrete Aufgabe wird Schritt für Schritt vorgerechnet, bevor das Kind selbst übernimmt.",
+    text: "Zeig es mir ist eine konkrete vorgerechnete Aufgabe, kein Produkt-Gastmodus.",
+    href: "/kind/addition",
   },
 ];
 
@@ -24,10 +27,10 @@ export default function Home() {
 
       <section className="area-grid" aria-label="Platzhalterbereiche">
         {areas.map((area) => (
-          <article className="area-card" key={area.title}>
+          <a className="area-card" key={area.title} href={area.href}>
             <h2>{area.title}</h2>
             <p>{area.text}</p>
-          </article>
+          </a>
         ))}
       </section>
     </main>

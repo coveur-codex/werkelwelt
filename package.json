@@ -11,7 +11,7 @@
     "dev": "npm run dev --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "echo \"No tests configured yet.\""
+    "test": "npm run test --workspace @werkelwelt/math-engine"
   },
   "devDependencies": {
     "typescript": "^5.5.0"

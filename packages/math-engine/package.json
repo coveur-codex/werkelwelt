@@ -1,0 +1,9 @@
+{
+  "name": "@werkelwelt/math-engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": { "types": "./src/index.ts", "default": "./src/index.ts" } },
+  "scripts": { "typecheck": "tsc --noEmit -p tsconfig.json", "test": "tsc -p tsconfig.test.json && node dist-test/test/addition.test.js" },
+  "types": "./src/index.ts"
+}
