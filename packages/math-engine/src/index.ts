@@ -28,12 +28,32 @@ export interface AdditionTask {
 
 export interface PlaceDigits { hundreds: number; tens: number; ones: number; }
 
+export type AdditionBuildPhase = "ready" | "first_number" | "second_number" | "ones_sum" | "bundle_ones" | "tens_sum" | "bundle_tens" | "hundreds_sum" | "result";
+export type AdditionColumn = "hundreds" | "tens" | "ones";
+
 export interface WorkedExampleStep {
   id: string;
   step?: AdditionStep;
+  phase: AdditionBuildPhase;
   title: string;
   text: string;
-  focus: "layout" | "ones" | "tens" | "hundreds" | "result";
+  focus: "layout" | AdditionColumn | "result";
+}
+
+export interface VisibleWrittenAdditionState {
+  showLeft: boolean;
+  showRight: boolean;
+  result: Partial<Record<AdditionColumn, string>>;
+  carries: Partial<Record<"hundreds" | "tens", string>>;
+}
+
+export interface VisiblePlaceValueState {
+  showLeft: boolean;
+  showRight: boolean;
+  highlightBundledOnes: boolean;
+  highlightBundledTens: boolean;
+  showCarryToTens: boolean;
+  showCarryToHundreds: boolean;
 }
 
 export interface ValidationResult {
@@ -66,26 +86,55 @@ export function isAdditionTaskInScope(left: number, right: number): boolean {
   return Number.isInteger(left) && Number.isInteger(right) && left >= 0 && right >= 0 && left <= 999 && right <= 999 && left + right <= 999;
 }
 
-export function getAdditionSteps(task: AdditionTask): WorkedExampleStep[] {
+export function getAdditionBuildSteps(task: AdditionTask): WorkedExampleStep[] {
+  const hasHundredsWork = task.leftDigits.hundreds > 0 || task.rightDigits.hundreds > 0 || task.carries.toHundreds > 0 || task.resultDigits.hundreds > 0;
   const steps: WorkedExampleStep[] = [
-    { id: "layout", title: "Aufgabe untereinander schreiben", text: `Wir schreiben ${task.left} und ${task.right} untereinander. Die Einer stehen rechts.`, focus: "layout" },
-    { id: "ones-start", step: "ones_sum", title: "Bei den Einern starten", text: `Wir starten rechts bei den Einern: ${task.leftDigits.ones} + ${task.rightDigits.ones} = ${task.columnSums.ones}.`, focus: "ones" },
+    { id: "ready", phase: "ready", title: `${task.left} + ${task.right}`, text: "Wir bauen die Aufgabe jetzt Schritt für Schritt auf.", focus: "layout" },
+    { id: "first-number", phase: "first_number", title: "Erste Zahl", text: `Zuerst legen wir die ${task.left}: ${task.leftDigits.hundreds ? `${task.leftDigits.hundreds} Hunderter, ` : ""}${task.leftDigits.tens} Zehner und ${task.leftDigits.ones} Einer.`, focus: "layout" },
+    { id: "second-number", phase: "second_number", title: "Zweite Zahl", text: `Jetzt legen wir die ${task.right} dazu: ${task.rightDigits.hundreds ? `${task.rightDigits.hundreds} Hunderter, ` : ""}${task.rightDigits.tens} Zehner und ${task.rightDigits.ones} Einer.`, focus: "layout" },
+    { id: "ones-sum", step: "ones_sum", phase: "ones_sum", title: "Einer rechnen", text: `Wir starten rechts bei den Einern. ${task.leftDigits.ones} Einer plus ${task.rightDigits.ones} Einer sind ${task.columnSums.ones} Einer.`, focus: "ones" },
   ];
   if (task.carries.toTens > 0) {
-    steps.push(
-      { id: "bundle-ones", step: "carry_to_tens", title: "Einer bündeln", text: `10 Einer werden zu 1 Zehner gebündelt. ${task.resultDigits.ones} Einer bleiben unten.`, focus: "ones" },
-      { id: "carry-tens", step: "carry_to_tens", title: "Übertrag notieren", text: `${task.carries.toTens} Zehner wandert als Übertrag zu den Zehnern.`, focus: "tens" },
-    );
+    steps.push({ id: "bundle-ones", step: "carry_to_tens", phase: "bundle_ones", title: "Einer bündeln", text: `10 Einer werden zu 1 Zehner. ${task.resultDigits.ones} Einer bleibt unten.`, focus: "ones" });
   } else {
-    steps.push({ id: "ones-digit", step: "ones_digit", title: "Einer eintragen", text: `${task.resultDigits.ones} Einer kommen unten in die Einerstelle.`, focus: "ones" });
+    steps.push({ id: "ones-digit", step: "ones_digit", phase: "bundle_ones", title: "Einer eintragen", text: `${task.resultDigits.ones} Einer bleiben unten. Es gibt keinen Übertrag.`, focus: "ones" });
   }
-  steps.push({ id: "tens", step: "tens_sum", title: "Zehner addieren", text: `Jetzt die Zehner: ${task.leftDigits.tens} + ${task.rightDigits.tens} + ${task.carries.toTens} = ${task.columnSums.tensIncludingCarry}.`, focus: "tens" });
-  if (task.carries.toHundreds > 0) steps.push({ id: "bundle-tens", step: "carry_to_hundreds", title: "Zehner bündeln", text: `10 Zehner werden zu 1 Hunderter. ${task.resultDigits.tens} Zehner bleiben unten.`, focus: "tens" });
-  else steps.push({ id: "tens-digit", step: "tens_digit", title: "Zehner eintragen", text: `${task.resultDigits.tens} Zehner kommen unten in die Zehnerstelle.`, focus: "tens" });
-  steps.push({ id: "hundreds", step: "hundreds_sum", title: "Hunderter addieren", text: `Die Hunderter ergeben ${task.resultDigits.hundreds}.`, focus: "hundreds" });
-  steps.push({ id: "result", step: "final_result", title: "Ergebnis lesen", text: `Fertig. Das Ergebnis ist ${task.result}.`, focus: "result" });
+  steps.push({ id: "tens-sum", step: "tens_sum", phase: "tens_sum", title: "Zehner rechnen", text: `Jetzt die Zehner: ${task.leftDigits.tens} plus ${task.rightDigits.tens} plus ${task.carries.toTens} sind ${task.columnSums.tensIncludingCarry} Zehner.`, focus: "tens" });
+  if (task.carries.toHundreds > 0) {
+    steps.push({ id: "bundle-tens", step: "carry_to_hundreds", phase: "bundle_tens", title: "Zehner bündeln", text: `10 Zehner werden zu 1 Hunderter. ${task.resultDigits.tens} Zehner bleiben unten.`, focus: "tens" });
+  } else {
+    steps.push({ id: "tens-digit", step: "tens_digit", phase: "bundle_tens", title: "Zehner eintragen", text: `${task.resultDigits.tens} Zehner kommen unten in die Zehnerstelle.`, focus: "tens" });
+  }
+  if (hasHundredsWork) steps.push({ id: "hundreds-sum", step: "hundreds_sum", phase: "hundreds_sum", title: "Hunderter rechnen", text: `Jetzt die Hunderter: ${task.leftDigits.hundreds} plus ${task.rightDigits.hundreds} plus ${task.carries.toHundreds} sind ${task.resultDigits.hundreds} Hunderter.`, focus: "hundreds" });
+  steps.push({ id: "result", step: "final_result", phase: "result", title: "Ergebnis", text: `Fertig. Das Ergebnis ist ${task.result}.`, focus: "result" });
   return steps;
 }
+
+export const getAdditionSteps = getAdditionBuildSteps;
+
+export function getVisibleWrittenAdditionState(task: AdditionTask, stepIndex: number): VisibleWrittenAdditionState {
+  const phase = phaseAt(task, stepIndex);
+  const result: Partial<Record<AdditionColumn, string>> = {};
+  const carries: Partial<Record<"hundreds" | "tens", string>> = {};
+  if (["bundle_ones", "tens_sum", "bundle_tens", "hundreds_sum", "result"].includes(phase)) result.ones = String(task.resultDigits.ones);
+  if (["bundle_ones", "tens_sum", "bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toTens > 0) carries.tens = String(task.carries.toTens);
+  if (["bundle_tens", "hundreds_sum", "result"].includes(phase)) result.tens = String(task.resultDigits.tens);
+  if (["bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toHundreds > 0) carries.hundreds = String(task.carries.toHundreds);
+  if (["hundreds_sum", "result"].includes(phase)) result.hundreds = String(task.resultDigits.hundreds);
+  if (phase === "result") { result.ones = String(task.resultDigits.ones); result.tens = String(task.resultDigits.tens); result.hundreds = String(task.resultDigits.hundreds); }
+  return { showLeft: phase !== "ready", showRight: !["ready", "first_number"].includes(phase), result, carries };
+}
+
+export function getVisiblePlaceValueState(task: AdditionTask, stepIndex: number): VisiblePlaceValueState {
+  const phase = phaseAt(task, stepIndex);
+  return { showLeft: phase !== "ready", showRight: !["ready", "first_number"].includes(phase), highlightBundledOnes: ["bundle_ones"].includes(phase), highlightBundledTens: ["bundle_tens"].includes(phase), showCarryToTens: ["bundle_ones", "tens_sum", "bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toTens > 0, showCarryToHundreds: ["bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toHundreds > 0 };
+}
+
+export function getActiveColumn(task: AdditionTask, stepIndex: number): AdditionColumn | "result" | undefined {
+  return getAdditionBuildSteps(task)[stepIndex]?.focus as AdditionColumn | "result" | undefined;
+}
+
+function phaseAt(task: AdditionTask, stepIndex: number): AdditionBuildPhase { return getAdditionBuildSteps(task)[Math.max(0, Math.min(stepIndex, getAdditionBuildSteps(task).length - 1))]?.phase ?? "ready"; }
 
 export function expectedValueForStep(task: AdditionTask, step: AdditionStep): number {
   const map: Record<AdditionStep, number> = { ones_sum: task.columnSums.ones, ones_digit: task.resultDigits.ones, carry_to_tens: task.carries.toTens, tens_sum: task.columnSums.tensIncludingCarry, tens_digit: task.resultDigits.tens, carry_to_hundreds: task.carries.toHundreds, hundreds_sum: task.resultDigits.hundreds, final_result: task.result };
@@ -114,17 +163,17 @@ export function shouldTriggerRepair(events: LearningEventLike[], currentStep: Ad
 export const getAdditionWorkedExample = getAdditionSteps;
 
 export function getCurrentStepState(task: AdditionTask, stepIndex: number): { revealed: Partial<Record<AdditionStep, string>>; step: WorkedExampleStep | undefined } {
-  const steps = getAdditionSteps(task);
-  const revealed: Partial<Record<AdditionStep, string>> = {};
-  for (const item of steps.slice(0, stepIndex)) {
-    if (item.step === "ones_digit" || item.id === "bundle-ones") revealed.ones_digit = String(task.resultDigits.ones);
-    if (item.step === "carry_to_tens") revealed.carry_to_tens = String(task.carries.toTens);
-    if (item.step === "tens_digit" || item.id === "bundle-tens") revealed.tens_digit = String(task.resultDigits.tens);
-    if (item.step === "carry_to_hundreds") revealed.carry_to_hundreds = String(task.carries.toHundreds);
-    if (item.step === "hundreds_sum") revealed.hundreds_sum = String(task.resultDigits.hundreds);
-    if (item.step === "final_result") { revealed.ones_digit = String(task.resultDigits.ones); revealed.tens_digit = String(task.resultDigits.tens); revealed.hundreds_sum = String(task.resultDigits.hundreds); }
-  }
-  return { revealed, step: steps[Math.max(0, stepIndex - 1)] };
+  const written = getVisibleWrittenAdditionState(task, stepIndex);
+  return {
+    revealed: {
+      ...(written.result.ones ? { ones_digit: written.result.ones } : {}),
+      ...(written.carries.tens ? { carry_to_tens: written.carries.tens } : {}),
+      ...(written.result.tens ? { tens_digit: written.result.tens } : {}),
+      ...(written.carries.hundreds ? { carry_to_hundreds: written.carries.hundreds } : {}),
+      ...(written.result.hundreds ? { hundreds_sum: written.result.hundreds } : {}),
+    },
+    step: getAdditionBuildSteps(task)[stepIndex],
+  };
 }
 
 export function getExpectedCarry(task: AdditionTask, column: "tens" | "hundreds"): number { return column === "tens" ? task.carries.toTens : task.carries.toHundreds; }
