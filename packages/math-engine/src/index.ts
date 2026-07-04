@@ -48,6 +48,15 @@ export interface VisibleWrittenAdditionState {
   carries: Partial<Record<"thousands" | "hundreds" | "tens", string>>;
 }
 
+export interface AdditionSuggestionOptions {
+  maxValue?: number;
+  minDigits?: 1 | 2 | 3;
+  maxDigits?: 1 | 2 | 3;
+  requireCarry?: boolean;
+  preferCarry?: boolean;
+  allowResultAbove999?: boolean;
+}
+
 export interface VisiblePlaceValueState {
   showLeft: boolean;
   showRight: boolean;
@@ -118,6 +127,59 @@ export function getAdditionBuildSteps(task: AdditionTask): WorkedExampleStep[] {
 }
 
 export const getAdditionSteps = getAdditionBuildSteps;
+
+export function getVisibleWrittenAdditionStateForMode(task: AdditionTask, mode: AdditionMode, stepIndex = 0, revealed: Partial<Record<AdditionStep, string>> = {}): VisibleWrittenAdditionState {
+  if (mode === "worked_example") return getVisibleWrittenAdditionState(task, stepIndex);
+  const result: Partial<Record<AdditionColumn, string>> = {};
+  const carries: Partial<Record<"thousands" | "hundreds" | "tens", string>> = {};
+  if (mode === "guided_mode") {
+    if (revealed.ones_digit) result.ones = revealed.ones_digit;
+    if (revealed.carry_to_tens) carries.tens = revealed.carry_to_tens;
+    if (revealed.tens_digit) result.tens = revealed.tens_digit;
+    if (revealed.carry_to_hundreds) carries.hundreds = revealed.carry_to_hundreds;
+    if (revealed.hundreds_sum) result.hundreds = revealed.hundreds_sum;
+    if (revealed.final_result) {
+      for (const column of getVisibleColumns(task)) result[column] = String(task.resultDigits[column]);
+    }
+  }
+  return { showLeft: true, showRight: true, columns: getVisibleColumns(task), result, carries };
+}
+
+export function getVisiblePlaceValueStateForMode(task: AdditionTask, mode: AdditionMode, stepIndex = 0): VisiblePlaceValueState {
+  if (mode === "worked_example") return getVisiblePlaceValueState(task, stepIndex);
+  return { showLeft: true, showRight: true, highlightBundledOnes: false, highlightBundledTens: false, showCarryToTens: false, showCarryToHundreds: false, showCarryToThousands: false, bundledOnes: null, bundledTens: null };
+}
+
+export function getActiveColumnForMode(task: AdditionTask, mode: AdditionMode, stepIndex = 0, activePracticeStep?: AdditionStep): AdditionColumn | "result" | undefined {
+  if (mode === "worked_example") return getActiveColumn(task, stepIndex);
+  const step = mode === "practice_mode" ? activePracticeStep : guidedStepAt(task, stepIndex);
+  return columnForAdditionStep(step);
+}
+
+export function generateAdditionSuggestion(options: AdditionSuggestionOptions = {}): Pick<AdditionTask, "operation" | "left" | "right" | "result"> {
+  const maxValue = Math.min(options.maxValue ?? 999, 999);
+  const minDigits = options.minDigits ?? 2;
+  const maxDigits = options.maxDigits ?? 3;
+  const preferCarry = options.preferCarry ?? true;
+  const maxResult = options.allowResultAbove999 ? 1000 : 999;
+  const minValue = minDigits <= 1 ? 0 : 10 ** (minDigits - 1);
+  const maxByDigits = 10 ** maxDigits - 1;
+  const upper = Math.min(maxValue, maxByDigits);
+  const needsCarry = options.requireCarry ? true : preferCarry && Math.random() < 0.75;
+  for (let i = 0; i < 800; i++) {
+    const left = randomInt(minValue, upper);
+    const right = randomInt(minValue, Math.min(upper, maxResult - left));
+    if (!isAdditionTaskInScope(left, right) || left + right > maxResult) continue;
+    if (needsCarry && !hasAnyCarry(left, right)) continue;
+    return { operation: "addition", left, right, result: left + right };
+  }
+  for (let left = minValue; left <= upper; left++) {
+    for (let right = minValue; right <= Math.min(upper, maxResult - left); right++) {
+      if ((!options.requireCarry || hasAnyCarry(left, right)) && isAdditionTaskInScope(left, right)) return { operation: "addition", left, right, result: left + right };
+    }
+  }
+  throw new Error("NO_ADDITION_SUGGESTION_IN_SCOPE");
+}
 
 export function getVisibleWrittenAdditionState(task: AdditionTask, stepIndex: number): VisibleWrittenAdditionState {
   const phase = phaseAt(task, stepIndex);
@@ -198,6 +260,19 @@ export function getBundlingState(task: AdditionTask, stepIndex: number, column?:
   if ((column === undefined || column === "tens") && task.carries.toHundreds > 0 && ["bundle_tens"].includes(phase)) return { from: "tens", to: "hundreds", bundledCount: 10, remainingCount: task.resultDigits.tens, carryCount: 1, active: true };
   return null;
 }
+
+function guidedStepAt(task: AdditionTask, stepIndex: number): AdditionStep | undefined {
+  return getAdditionBuildSteps(task)[stepIndex]?.step;
+}
+function columnForAdditionStep(step: AdditionStep | undefined): AdditionColumn | "result" | undefined {
+  if (!step) return "ones";
+  if (step === "ones_sum" || step === "ones_digit") return "ones";
+  if (step === "carry_to_tens" || step === "tens_sum" || step === "tens_digit") return "tens";
+  if (step === "carry_to_hundreds" || step === "hundreds_sum") return "hundreds";
+  return "result";
+}
+function hasAnyCarry(left: number, right: number): boolean { return createAdditionTask(left, right).carries.toTens > 0 || createAdditionTask(left, right).carries.toHundreds > 0 || createAdditionTask(left, right).carries.toThousands > 0; }
+function randomInt(min: number, max: number): number { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 function placeValue(column: AdditionColumn): number { return column === "thousands" ? 1000 : column === "hundreds" ? 100 : column === "tens" ? 10 : 1; }
 function toDigits(value: number): PlaceDigits { return { thousands: Math.floor(value / 1000), hundreds: Math.floor((value % 1000) / 100), tens: Math.floor((value % 100) / 10), ones: value % 10 }; }

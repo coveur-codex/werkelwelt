@@ -189,3 +189,23 @@ button.secondary { background: #e7dcc9; color: #31443b; }
 @keyframes bundle-fade { 0%,55% { opacity: 1; } 100% { opacity: .32; transform: scale(.82); } }
 @media (prefers-reduced-motion: reduce) { *, .bundle, .carry-badge, .digit-cell, .material { animation: none !important; transition: none !important; } }
 @media (max-width: 900px), (orientation: portrait) { .addition-top { grid-template-columns: 1fr; } .addition-grid { grid-template-columns: 1fr; } .addition-app { height: 100dvh; } .orientation-note { display:block; background:#fff4cf; border-radius:18px; padding:1rem; } .step-panel { grid-template-columns:1fr; } }
+.practice-field {
+  background: #f7f2e8;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  color: #26332f;
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  font-size: .85rem;
+  font-weight: 700;
+  padding: .35rem;
+  text-align: left;
+}
+.practice-field.active,
+.practice-field:focus-visible {
+  background: #fff4cf;
+  border-color: #e1b65d;
+  outline: 3px solid rgba(225, 182, 93, .35);
+}
+.practice-field b { font-size: 1.3rem; text-align: center; }
