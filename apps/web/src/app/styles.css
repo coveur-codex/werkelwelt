@@ -209,3 +209,43 @@ button.secondary { background: #e7dcc9; color: #31443b; }
   outline: 3px solid rgba(225, 182, 93, .35);
 }
 .practice-field b { font-size: 1.3rem; text-align: center; }
+.practice-step {
+  background: #fffdf8;
+  border: 2px solid #e1b65d;
+  border-radius: 14px;
+  display: grid;
+  gap: .35rem;
+  min-width: min(26rem, 100%);
+  padding: .55rem;
+}
+.practice-step strong { color: #17382d; font-size: 1rem; }
+.practice-step span { color: #51645b; font-size: .85rem; font-weight: 700; }
+.practice-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+  list-style: none;
+  margin: 0;
+  max-width: 38rem;
+  padding: 0;
+}
+.practice-steps button {
+  align-items: center;
+  background: #f7f2e8;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  color: #26332f;
+  display: flex;
+  gap: .35rem;
+  min-height: 2.35rem;
+  padding: .35rem .5rem;
+}
+.practice-steps .active button {
+  background: #fff4cf;
+  border-color: #e1b65d;
+  outline: 3px solid rgba(225, 182, 93, .35);
+}
+.practice-steps b { font-size: 1.05rem; }
+.completion-panel { align-items: center; }
+.mood-card { display: grid; gap: .35rem; margin-top: .35rem; }
+.mood-card h2 { font-size: 1rem; margin: 0; }
