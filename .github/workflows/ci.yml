@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  checks:
+    name: Typecheck, lint, test, build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Typecheck workspaces
+        run: pnpm --recursive --if-present run typecheck
+
+      - name: Lint workspaces if configured
+        run: pnpm --recursive --if-present run lint
+
+      - name: Test workspaces if configured
+        run: pnpm --recursive --if-present run test
+
+      - name: Build workspaces where possible
+        run: pnpm --recursive --if-present run build
