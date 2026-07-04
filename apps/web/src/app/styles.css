@@ -135,6 +135,27 @@ button.secondary { background: #e7dcc9; color: #31443b; }
 .addition-title h1 { font-size: clamp(1.45rem, 3vw, 2.25rem); letter-spacing: -.04em; }
 .addition-title .eyebrow { margin-bottom: .2rem; }
 .addition-title p { margin: .1rem 0 0; color: #51645b; font-weight: 700; }
+.difficulty-badge {
+  align-items: center;
+  background: #edf5ed;
+  border: 2px solid rgba(79, 125, 104, .22);
+  border-radius: 16px;
+  display: inline-grid;
+  gap: .08rem;
+  margin-top: .45rem;
+  max-width: min(100%, 24rem);
+  padding: .45rem .7rem;
+}
+.difficulty-badge span {
+  color: #657a70;
+  font-size: .72rem;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.difficulty-badge strong { color: #17382d; font-size: 1rem; line-height: 1.1; }
+.difficulty-badge em { color: #385447; font-size: .86rem; font-style: normal; font-weight: 800; line-height: 1.2; }
 .task-form { gap: .45rem; justify-content: center; }
 .task-form input { width: 5.5rem; max-width: 5.5rem; padding: .55rem .7rem; text-align: center; }
 .input-plus { font-size: 1.4rem; font-weight: 900; color: #4f7d68; }
