@@ -1,0 +1,19 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .: {}
+
+  packages/content-model: {}
+
+  packages/math-engine: {}
+
+  packages/skill-graph: {}
+
+  packages/types: {}
+
+  packages/ui: {}

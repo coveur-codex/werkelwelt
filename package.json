@@ -1,0 +1,13 @@
+{
+  "name": "werkelwelt",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TypeScript-Monorepo fuer die Werkelwelt PWA/Web-App.",
+  "packageManager": "pnpm@10.28.1",
+  "scripts": {
+    "dev": "pnpm --recursive --if-present dev",
+    "build": "pnpm --recursive --if-present build",
+    "lint": "pnpm --recursive --if-present lint",
+    "test": "pnpm --recursive --if-present test"
+  }
+}
