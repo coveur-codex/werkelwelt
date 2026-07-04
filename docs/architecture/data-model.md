@@ -38,7 +38,7 @@ DATABASE_URL=postgres://werkelwelt:werkelwelt_dev_password@localhost:5432/werkel
 ## Entwurf für spätere Tabellen
 
 - `learning_sessions`: bündelt Lernaktivität eines Kindprofils in einer Sitzung.
-- `learning_events`: speichert feingranulare Ereignisse wie Teilschritte, Hilfe- oder Demo-Anfragen.
+- `learning_events`: speichert feingranulare Ereignisse wie Teilschritte, Hilfe- oder Worked-Example-Anfragen.
 - `skill_states`: hält den aktuellen Kompetenzzustand pro Kindprofil und Fähigkeit.
 - `rewards`: protokolliert Belohnungsereignisse ohne pädagogische Kernlogik zu vermischen.
 - `paper_transfer_tasks`: dokumentiert spätere Transferaufgaben auf Papier.
