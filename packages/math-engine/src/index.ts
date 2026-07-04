@@ -22,14 +22,14 @@ export interface AdditionTask {
     tensIncludingCarry: number;
     hundredsIncludingCarry: number;
   };
-  carries: { toTens: number; toHundreds: number };
+  carries: { toTens: number; toHundreds: number; toThousands: number };
   resultDigits: PlaceDigits;
 }
 
-export interface PlaceDigits { hundreds: number; tens: number; ones: number; }
+export interface PlaceDigits { thousands: number; hundreds: number; tens: number; ones: number; }
 
 export type AdditionBuildPhase = "ready" | "first_number" | "second_number" | "ones_sum" | "bundle_ones" | "tens_sum" | "bundle_tens" | "hundreds_sum" | "result";
-export type AdditionColumn = "hundreds" | "tens" | "ones";
+export type AdditionColumn = "thousands" | "hundreds" | "tens" | "ones";
 
 export interface WorkedExampleStep {
   id: string;
@@ -43,8 +43,9 @@ export interface WorkedExampleStep {
 export interface VisibleWrittenAdditionState {
   showLeft: boolean;
   showRight: boolean;
+  columns: AdditionColumn[];
   result: Partial<Record<AdditionColumn, string>>;
-  carries: Partial<Record<"hundreds" | "tens", string>>;
+  carries: Partial<Record<"thousands" | "hundreds" | "tens", string>>;
 }
 
 export interface VisiblePlaceValueState {
@@ -54,7 +55,12 @@ export interface VisiblePlaceValueState {
   highlightBundledTens: boolean;
   showCarryToTens: boolean;
   showCarryToHundreds: boolean;
+  showCarryToThousands: boolean;
+  bundledOnes: BundlingState | null;
+  bundledTens: BundlingState | null;
 }
+
+export interface BundlingState { from: AdditionColumn; to: AdditionColumn; bundledCount: 10; remainingCount: number; carryCount: 1; active: boolean; }
 
 export interface ValidationResult {
   correct: boolean;
@@ -68,7 +74,7 @@ export interface ValidationResult {
 export interface LearningEventLike { event_type?: string; type?: string; step?: string; help_level?: number; helpLevel?: number; actual_value?: number | null | undefined; actualValue?: number | null | undefined; }
 
 export function createAdditionTask(left: number, right: number): AdditionTask {
-  if (!Number.isInteger(left) || !Number.isInteger(right) || left < 0 || right < 0 || left > 999 || right > 999 || left + right > 999) {
+  if (!Number.isInteger(left) || !Number.isInteger(right) || left < 0 || right < 0 || left > 999 || right > 999 || left + right > 1000) {
     throw new Error("ADDITION_TASK_OUT_OF_SCOPE");
   }
   const leftDigits = toDigits(left);
@@ -79,15 +85,16 @@ export function createAdditionTask(left: number, right: number): AdditionTask {
   const toHundreds = Math.floor(tensIncludingCarry / 10);
   const hundredsIncludingCarry = leftDigits.hundreds + rightDigits.hundreds + toHundreds;
   const result = left + right;
-  return { operation: "addition", left, right, result, leftDigits, rightDigits, columnSums: { ones, tensIncludingCarry, hundredsIncludingCarry }, carries: { toTens, toHundreds }, resultDigits: toDigits(result) };
+  const toThousands = Math.floor(hundredsIncludingCarry / 10);
+  return { operation: "addition", left, right, result, leftDigits, rightDigits, columnSums: { ones, tensIncludingCarry, hundredsIncludingCarry }, carries: { toTens, toHundreds, toThousands }, resultDigits: toDigits(result) };
 }
 
 export function isAdditionTaskInScope(left: number, right: number): boolean {
-  return Number.isInteger(left) && Number.isInteger(right) && left >= 0 && right >= 0 && left <= 999 && right <= 999 && left + right <= 999;
+  return Number.isInteger(left) && Number.isInteger(right) && left >= 0 && right >= 0 && left <= 999 && right <= 999 && left + right <= 1000;
 }
 
 export function getAdditionBuildSteps(task: AdditionTask): WorkedExampleStep[] {
-  const hasHundredsWork = task.leftDigits.hundreds > 0 || task.rightDigits.hundreds > 0 || task.carries.toHundreds > 0 || task.resultDigits.hundreds > 0;
+  const hasHundredsWork = getVisibleColumns(task).includes("hundreds");
   const steps: WorkedExampleStep[] = [
     { id: "ready", phase: "ready", title: `${task.left} + ${task.right}`, text: "Wir bauen die Aufgabe jetzt Schritt für Schritt auf.", focus: "layout" },
     { id: "first-number", phase: "first_number", title: "Erste Zahl", text: `Zuerst legen wir die ${task.left}: ${task.leftDigits.hundreds ? `${task.leftDigits.hundreds} Hunderter, ` : ""}${task.leftDigits.tens} Zehner und ${task.leftDigits.ones} Einer.`, focus: "layout" },
@@ -115,19 +122,20 @@ export const getAdditionSteps = getAdditionBuildSteps;
 export function getVisibleWrittenAdditionState(task: AdditionTask, stepIndex: number): VisibleWrittenAdditionState {
   const phase = phaseAt(task, stepIndex);
   const result: Partial<Record<AdditionColumn, string>> = {};
-  const carries: Partial<Record<"hundreds" | "tens", string>> = {};
+  const carries: Partial<Record<"thousands" | "hundreds" | "tens", string>> = {};
   if (["bundle_ones", "tens_sum", "bundle_tens", "hundreds_sum", "result"].includes(phase)) result.ones = String(task.resultDigits.ones);
   if (["bundle_ones", "tens_sum", "bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toTens > 0) carries.tens = String(task.carries.toTens);
   if (["bundle_tens", "hundreds_sum", "result"].includes(phase)) result.tens = String(task.resultDigits.tens);
   if (["bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toHundreds > 0) carries.hundreds = String(task.carries.toHundreds);
-  if (["hundreds_sum", "result"].includes(phase)) result.hundreds = String(task.resultDigits.hundreds);
-  if (phase === "result") { result.ones = String(task.resultDigits.ones); result.tens = String(task.resultDigits.tens); result.hundreds = String(task.resultDigits.hundreds); }
-  return { showLeft: phase !== "ready", showRight: !["ready", "first_number"].includes(phase), result, carries };
+  if (["hundreds_sum", "result"].includes(phase) && getVisibleColumns(task).includes("hundreds")) result.hundreds = String(task.resultDigits.hundreds);
+  if (["hundreds_sum", "result"].includes(phase) && task.carries.toThousands > 0) carries.thousands = String(task.carries.toThousands);
+  if (phase === "result") { for (const column of getVisibleColumns(task)) result[column] = String(task.resultDigits[column]); }
+  return { showLeft: phase !== "ready", showRight: !["ready", "first_number"].includes(phase), columns: getVisibleColumns(task), result, carries };
 }
 
 export function getVisiblePlaceValueState(task: AdditionTask, stepIndex: number): VisiblePlaceValueState {
   const phase = phaseAt(task, stepIndex);
-  return { showLeft: phase !== "ready", showRight: !["ready", "first_number"].includes(phase), highlightBundledOnes: ["bundle_ones"].includes(phase), highlightBundledTens: ["bundle_tens"].includes(phase), showCarryToTens: ["bundle_ones", "tens_sum", "bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toTens > 0, showCarryToHundreds: ["bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toHundreds > 0 };
+  return { showLeft: phase !== "ready", showRight: !["ready", "first_number"].includes(phase), highlightBundledOnes: ["bundle_ones"].includes(phase), highlightBundledTens: ["bundle_tens"].includes(phase), showCarryToTens: ["bundle_ones", "tens_sum", "bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toTens > 0, showCarryToHundreds: ["bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toHundreds > 0, showCarryToThousands: ["hundreds_sum", "result"].includes(phase) && task.carries.toThousands > 0, bundledOnes: getBundlingState(task, stepIndex, "ones"), bundledTens: getBundlingState(task, stepIndex, "tens") };
 }
 
 export function getActiveColumn(task: AdditionTask, stepIndex: number): AdditionColumn | "result" | undefined {
@@ -137,7 +145,7 @@ export function getActiveColumn(task: AdditionTask, stepIndex: number): Addition
 function phaseAt(task: AdditionTask, stepIndex: number): AdditionBuildPhase { return getAdditionBuildSteps(task)[Math.max(0, Math.min(stepIndex, getAdditionBuildSteps(task).length - 1))]?.phase ?? "ready"; }
 
 export function expectedValueForStep(task: AdditionTask, step: AdditionStep): number {
-  const map: Record<AdditionStep, number> = { ones_sum: task.columnSums.ones, ones_digit: task.resultDigits.ones, carry_to_tens: task.carries.toTens, tens_sum: task.columnSums.tensIncludingCarry, tens_digit: task.resultDigits.tens, carry_to_hundreds: task.carries.toHundreds, hundreds_sum: task.resultDigits.hundreds, final_result: task.result };
+  const map: Record<AdditionStep, number> = { ones_sum: task.columnSums.ones, ones_digit: task.resultDigits.ones, carry_to_tens: task.carries.toTens, tens_sum: task.columnSums.tensIncludingCarry, tens_digit: task.resultDigits.tens, carry_to_hundreds: task.carries.toHundreds, hundreds_sum: task.resultDigits.thousands > 0 ? task.resultDigits.thousands * 10 + task.resultDigits.hundreds : task.resultDigits.hundreds, final_result: task.result };
   return map[step];
 }
 
@@ -179,7 +187,20 @@ export function getCurrentStepState(task: AdditionTask, stepIndex: number): { re
 export function getExpectedCarry(task: AdditionTask, column: "tens" | "hundreds"): number { return column === "tens" ? task.carries.toTens : task.carries.toHundreds; }
 export function getExpectedResultDigit(task: AdditionTask, column: "ones" | "tens" | "hundreds"): number { return task.resultDigits[column]; }
 
-function toDigits(value: number): PlaceDigits { return { hundreds: Math.floor(value / 100), tens: Math.floor((value % 100) / 10), ones: value % 10 }; }
+export function getVisibleColumns(task: AdditionTask): AdditionColumn[] {
+  const maxPlace = task.result >= 1000 ? 1000 : Math.max(task.left, task.right, task.result) >= 100 ? 100 : Math.max(task.left, task.right, task.result) >= 10 ? 10 : 1;
+  return (["thousands", "hundreds", "tens", "ones"] as AdditionColumn[]).filter((column) => placeValue(column) <= maxPlace);
+}
+
+export function getBundlingState(task: AdditionTask, stepIndex: number, column?: "ones" | "tens"): BundlingState | null {
+  const phase = phaseAt(task, stepIndex);
+  if ((column === undefined || column === "ones") && task.carries.toTens > 0 && ["bundle_ones"].includes(phase)) return { from: "ones", to: "tens", bundledCount: 10, remainingCount: task.resultDigits.ones, carryCount: 1, active: true };
+  if ((column === undefined || column === "tens") && task.carries.toHundreds > 0 && ["bundle_tens"].includes(phase)) return { from: "tens", to: "hundreds", bundledCount: 10, remainingCount: task.resultDigits.tens, carryCount: 1, active: true };
+  return null;
+}
+
+function placeValue(column: AdditionColumn): number { return column === "thousands" ? 1000 : column === "hundreds" ? 100 : column === "tens" ? 10 : 1; }
+function toDigits(value: number): PlaceDigits { return { thousands: Math.floor(value / 1000), hundreds: Math.floor((value % 1000) / 100), tens: Math.floor((value % 100) / 10), ones: value % 10 }; }
 function parseValue(value: string | number): number | null { const parsed = typeof value === "number" ? value : Number(value.trim()); return Number.isInteger(parsed) ? parsed : null; }
 function positiveFeedback(step: AdditionStep): string { return ({ ones_sum: "Du hast die Einer richtig gerechnet.", ones_digit: "Du hast die richtige Einerstelle benutzt.", carry_to_tens: "Du hast den Übertrag entdeckt.", tens_sum: "Du hast die Zehner mit Übertrag gerechnet.", tens_digit: "Du hast die Zehnerstelle richtig gefüllt.", carry_to_hundreds: "Du hast den Hunderter-Übertrag entdeckt.", hundreds_sum: "Du hast die Hunderter richtig gerechnet.", final_result: "Du hast das Ergebnis geschafft." })[step]; }
 function gentleFeedback(task: AdditionTask, step: AdditionStep, value: number | null): string { return analyzeAdditionMistake(task, step, value).message; }

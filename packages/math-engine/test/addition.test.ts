@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createAdditionTask, getAdditionBuildSteps, getCurrentStepState, getExpectedCarry, getExpectedResultDigit, getVisibleWrittenAdditionState, validateAdditionStep, shouldTriggerRepair } from "../src/index.js";
+import { createAdditionTask, getAdditionBuildSteps, getBundlingState, getCurrentStepState, getExpectedCarry, getExpectedResultDigit, getVisibleColumns, getVisibleWrittenAdditionState, validateAdditionStep, shouldTriggerRepair } from "../src/index.js";
 
 const threeDigit = createAdditionTask(248, 176);
 assert.equal(threeDigit.columnSums.ones, 14);
@@ -33,7 +33,15 @@ assert.equal(getVisibleWrittenAdditionState(twoDigit, 4).result.ones, "1");
 assert.equal(getVisibleWrittenAdditionState(twoDigit, 4).carries.tens, "1");
 assert.equal(getVisibleWrittenAdditionState(twoDigit, 5).result.tens, undefined);
 assert.equal(getVisibleWrittenAdditionState(twoDigit, 6).result.tens, "4");
-assert.equal(getVisibleWrittenAdditionState(twoDigit, 7).result.hundreds, "0");
+assert.equal(getVisibleWrittenAdditionState(twoDigit, 7).result.hundreds, undefined);
+assert.deepEqual(getVisibleColumns(createAdditionTask(12, 7)), ["tens", "ones"]);
+assert.deepEqual(getVisibleColumns(createAdditionTask(3, 4)), ["ones"]);
+assert.equal(getVisibleWrittenAdditionState(createAdditionTask(12, 7), 99).result.hundreds, undefined);
+assert.equal(getVisibleColumns(createAdditionTask(12, 7)).map((c)=>getVisibleWrittenAdditionState(createAdditionTask(12, 7), 99).result[c]).join(""), "19");
+assert.equal(getVisibleColumns(createAdditionTask(12, 8)).map((c)=>getVisibleWrittenAdditionState(createAdditionTask(12, 8), 99).result[c]).join(""), "20");
+assert.deepEqual(getVisibleColumns(createAdditionTask(105, 24)), ["hundreds", "tens", "ones"]);
+assert.deepEqual(getVisibleColumns(createAdditionTask(999, 1)), ["thousands", "hundreds", "tens", "ones"]);
+assert.equal(getVisibleColumns(createAdditionTask(999, 1)).map((c)=>getVisibleWrittenAdditionState(createAdditionTask(999, 1), 99).result[c]).join(""), "1000");
 assert.equal(getCurrentStepState(twoDigit, 4).revealed.ones_digit, "1");
 assert.equal(getCurrentStepState(twoDigit, 4).revealed.carry_to_tens, "1");
 
@@ -52,3 +60,12 @@ assert.equal(validateAdditionStep(task, "ones_digit", 5).correct, true);
 assert.equal(validateAdditionStep(task, "carry_to_tens", "").correct, false);
 assert.equal(shouldTriggerRepair([{event_type:"incorrect_partial_step", step:"ones_digit"},{event_type:"help_requested", step:"carry_to_tens"}], "carry_to_tens"), true);
 console.log("addition math-engine tests passed");
+
+const bundle48 = getBundlingState(createAdditionTask(48, 27), 4, "ones");
+assert.equal(bundle48?.bundledCount, 10);
+assert.equal(bundle48?.remainingCount, 5);
+assert.equal(bundle48?.to, "tens");
+const bundle248ones = getBundlingState(threeDigit, 4, "ones");
+assert.equal(bundle248ones?.remainingCount, 4);
+const bundle248tens = getBundlingState(threeDigit, 6, "tens");
+assert.equal(bundle248tens?.remainingCount, 2);
