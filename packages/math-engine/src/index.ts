@@ -66,7 +66,7 @@ export function isAdditionTaskInScope(left: number, right: number): boolean {
   return Number.isInteger(left) && Number.isInteger(right) && left >= 0 && right >= 0 && left <= 999 && right <= 999 && left + right <= 999;
 }
 
-export function getAdditionWorkedExample(task: AdditionTask): WorkedExampleStep[] {
+export function getAdditionSteps(task: AdditionTask): WorkedExampleStep[] {
   const steps: WorkedExampleStep[] = [
     { id: "layout", title: "Aufgabe untereinander schreiben", text: `Wir schreiben ${task.left} und ${task.right} untereinander. Die Einer stehen rechts.`, focus: "layout" },
     { id: "ones-start", step: "ones_sum", title: "Bei den Einern starten", text: `Wir starten rechts bei den Einern: ${task.leftDigits.ones} + ${task.rightDigits.ones} = ${task.columnSums.ones}.`, focus: "ones" },
@@ -80,7 +80,8 @@ export function getAdditionWorkedExample(task: AdditionTask): WorkedExampleStep[
     steps.push({ id: "ones-digit", step: "ones_digit", title: "Einer eintragen", text: `${task.resultDigits.ones} Einer kommen unten in die Einerstelle.`, focus: "ones" });
   }
   steps.push({ id: "tens", step: "tens_sum", title: "Zehner addieren", text: `Jetzt die Zehner: ${task.leftDigits.tens} + ${task.rightDigits.tens} + ${task.carries.toTens} = ${task.columnSums.tensIncludingCarry}.`, focus: "tens" });
-  if (task.carries.toHundreds > 0) steps.push({ id: "bundle-tens", step: "carry_to_hundreds", title: "Zehner bündeln", text: `10 Zehner werden zu 1 Hunderter. ${task.resultDigits.tens} Zehner bleiben unten.`, focus: "hundreds" });
+  if (task.carries.toHundreds > 0) steps.push({ id: "bundle-tens", step: "carry_to_hundreds", title: "Zehner bündeln", text: `10 Zehner werden zu 1 Hunderter. ${task.resultDigits.tens} Zehner bleiben unten.`, focus: "tens" });
+  else steps.push({ id: "tens-digit", step: "tens_digit", title: "Zehner eintragen", text: `${task.resultDigits.tens} Zehner kommen unten in die Zehnerstelle.`, focus: "tens" });
   steps.push({ id: "hundreds", step: "hundreds_sum", title: "Hunderter addieren", text: `Die Hunderter ergeben ${task.resultDigits.hundreds}.`, focus: "hundreds" });
   steps.push({ id: "result", step: "final_result", title: "Ergebnis lesen", text: `Fertig. Das Ergebnis ist ${task.result}.`, focus: "result" });
   return steps;
@@ -109,6 +110,25 @@ export function shouldTriggerRepair(events: LearningEventLike[], currentStep: Ad
   const relevant = events.filter((event) => (event.step === currentStep || event.step === "carry_to_tens" || event.step === "ones_digit") && (event.event_type === "incorrect_partial_step" || event.type === "incorrect_partial_step" || event.event_type === "help_requested" || event.type === "help_requested"));
   return relevant.length >= 2;
 }
+
+export const getAdditionWorkedExample = getAdditionSteps;
+
+export function getCurrentStepState(task: AdditionTask, stepIndex: number): { revealed: Partial<Record<AdditionStep, string>>; step: WorkedExampleStep | undefined } {
+  const steps = getAdditionSteps(task);
+  const revealed: Partial<Record<AdditionStep, string>> = {};
+  for (const item of steps.slice(0, stepIndex)) {
+    if (item.step === "ones_digit" || item.id === "bundle-ones") revealed.ones_digit = String(task.resultDigits.ones);
+    if (item.step === "carry_to_tens") revealed.carry_to_tens = String(task.carries.toTens);
+    if (item.step === "tens_digit" || item.id === "bundle-tens") revealed.tens_digit = String(task.resultDigits.tens);
+    if (item.step === "carry_to_hundreds") revealed.carry_to_hundreds = String(task.carries.toHundreds);
+    if (item.step === "hundreds_sum") revealed.hundreds_sum = String(task.resultDigits.hundreds);
+    if (item.step === "final_result") { revealed.ones_digit = String(task.resultDigits.ones); revealed.tens_digit = String(task.resultDigits.tens); revealed.hundreds_sum = String(task.resultDigits.hundreds); }
+  }
+  return { revealed, step: steps[Math.max(0, stepIndex - 1)] };
+}
+
+export function getExpectedCarry(task: AdditionTask, column: "tens" | "hundreds"): number { return column === "tens" ? task.carries.toTens : task.carries.toHundreds; }
+export function getExpectedResultDigit(task: AdditionTask, column: "ones" | "tens" | "hundreds"): number { return task.resultDigits[column]; }
 
 function toDigits(value: number): PlaceDigits { return { hundreds: Math.floor(value / 100), tens: Math.floor((value % 100) / 10), ones: value % 10 }; }
 function parseValue(value: string | number): number | null { const parsed = typeof value === "number" ? value : Number(value.trim()); return Number.isInteger(parsed) ? parsed : null; }
