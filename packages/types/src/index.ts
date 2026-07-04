@@ -126,7 +126,9 @@ export type AdditionLearningEventType =
   | "repair_step_completed"
   | "task_completed"
   | "task_abandoned"
-  | "session_mood_reported";
+  | "session_mood_reported"
+  | "difficulty_requested"
+  | "difficulty_applied";
 
 /** Persistable MVP learning event shape; repository storage can later move to PostgreSQL unchanged. */
 export interface AdditionLearningEvent {
@@ -145,5 +147,9 @@ export interface AdditionLearningEvent {
   repair_type?: "bundling_ones_to_tens" | "carry_to_tens_column";
   difficulty_class?: string;
   mood?: "easy" | "ok" | "hard" | "too_much";
+  requested_direction?: "easier" | "similar" | "harder";
+  current_difficulty_class?: string;
+  applied_difficulty_class?: string;
+  reason?: string;
   metadata_json?: Record<string, unknown>;
 }
