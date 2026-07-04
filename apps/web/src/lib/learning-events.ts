@@ -15,6 +15,8 @@ export interface RecordLearningEventInput {
   actual_value?: number | null;
   help_level?: number;
   repair_type?: "bundling_ones_to_tens" | "carry_to_tens_column";
+  difficulty_class?: string;
+  mood?: "easy" | "ok" | "hard" | "too_much";
   metadata_json?: Record<string, unknown>;
 }
 
@@ -51,6 +53,10 @@ export function summarizeLearningEvents(events: AdditionLearningEvent[]) {
     correctSteps: events.filter((event) => event.event_type === "correct_partial_step").length,
     help: events.filter((event) => event.event_type === "help_requested").length,
     repairs: events.filter((event) => event.event_type === "repair_step_completed").length,
+    mood: events.find((event) => event.event_type === "session_mood_reported")?.mood,
+    frequentDifficulty: mostFrequent(events.map((event) => event.difficulty_class).filter(Boolean) as string[]),
     recentTasks: Array.from(new Set(events.filter((event) => event.task_left !== undefined && event.task_right !== undefined).map((event) => `${event.task_left} + ${event.task_right}`))).slice(0, 5),
   };
 }
+
+function mostFrequent(values: string[]): string | undefined { const counts = new Map<string, number>(); for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1); return [...counts.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0]; }

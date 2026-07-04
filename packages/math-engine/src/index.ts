@@ -22,14 +22,15 @@ export interface AdditionTask {
     tensIncludingCarry: number;
     hundredsIncludingCarry: number;
   };
-  carries: { toTens: number; toHundreds: number; toThousands: number };
+  carries: { toTens: number; toHundreds: number; toThousands: number; toTenThousands: number; toHundredThousands: number; toMillions: number };
   resultDigits: PlaceDigits;
 }
 
-export interface PlaceDigits { thousands: number; hundreds: number; tens: number; ones: number; }
+export interface PlaceDigits { millions: number; hundred_thousands: number; ten_thousands: number; thousands: number; hundreds: number; tens: number; ones: number; }
 
 export type AdditionBuildPhase = "ready" | "first_number" | "second_number" | "ones_sum" | "bundle_ones" | "tens_sum" | "bundle_tens" | "hundreds_sum" | "result";
-export type AdditionColumn = "thousands" | "hundreds" | "tens" | "ones";
+export type PlaceValueColumn = "ones" | "tens" | "hundreds" | "thousands" | "ten_thousands" | "hundred_thousands" | "millions";
+export type AdditionColumn = PlaceValueColumn;
 
 export interface WorkedExampleStep {
   id: string;
@@ -48,14 +49,34 @@ export interface VisibleWrittenAdditionState {
   carries: Partial<Record<"thousands" | "hundreds" | "tens", string>>;
 }
 
+export type AdditionDifficultyClass =
+  | "A1_SINGLE_DIGIT_NO_CARRY" | "A2_SINGLE_DIGIT_WITH_CARRY" | "A3_TWO_DIGIT_NO_CARRY" | "A4_TWO_DIGIT_ONE_CARRY" | "A5_TWO_DIGIT_RESULT_EXPANDS"
+  | "A6_THREE_DIGIT_NO_CARRY" | "A7_THREE_DIGIT_ONE_CARRY" | "A8_THREE_DIGIT_MULTIPLE_CARRIES" | "A9_WITH_INNER_ZERO"
+  | "A10_THOUSANDS_NO_CARRY" | "A11_THOUSANDS_WITH_CARRY" | "A12_TEN_THOUSANDS" | "A13_HUNDRED_THOUSANDS" | "A14_UP_TO_ONE_MILLION";
+
+export type SkillStatus = "unseen" | "introduced" | "worked_example_seen" | "guided_success" | "with_help" | "independent_with_material" | "independent_without_material" | "stable" | "needs_repair";
+export type SessionMood = "easy" | "ok" | "hard" | "too_much";
+
+export interface AdditionTaskAnalysis { operation: "addition"; left: number; right: number; result: number; visibleColumns: PlaceValueColumn[]; maxColumn: PlaceValueColumn; hasCarry: boolean; carryColumns: PlaceValueColumn[]; carryCount: number; resultExpandsDigits: boolean; containsInnerZero: boolean; resultContainsZero: boolean; difficultyClass: AdditionDifficultyClass; }
+export interface SkillState { skillKey: string; status: SkillStatus; evidenceCount: number; successCount: number; helpCount: number; repairCount: number; lastPracticedAt?: string; metadata_json?: Record<string, unknown>; }
+export interface AdditionLearningEventLike { event_type?: string; type?: string; step?: string; repair_type?: string; repairType?: string; mood?: SessionMood; task_left?: number; task_right?: number; difficulty_class?: AdditionDifficultyClass | string; created_at?: string; }
+
 export interface AdditionSuggestionOptions {
+  maxResult?: number;
   maxValue?: number;
-  minDigits?: 1 | 2 | 3;
-  maxDigits?: 1 | 2 | 3;
-  requireCarry?: boolean;
+  minDigits?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  maxDigits?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  allowedDifficultyClasses?: AdditionDifficultyClass[];
   preferCarry?: boolean;
+  requireCarry?: boolean;
+  requireMultipleCarries?: boolean;
+  requireInnerZero?: boolean;
+  maxVisibleColumns?: number;
+  avoidRecentTasks?: Array<{ left: number; right: number }>;
   allowResultAbove999?: boolean;
 }
+
+export const ADDITION_MAX_RESULT = 1_000_000;
 
 export interface VisiblePlaceValueState {
   showLeft: boolean;
@@ -65,6 +86,9 @@ export interface VisiblePlaceValueState {
   showCarryToTens: boolean;
   showCarryToHundreds: boolean;
   showCarryToThousands: boolean;
+  showCarryToTenThousands: boolean;
+  showCarryToHundredThousands: boolean;
+  showCarryToMillions: boolean;
   bundledOnes: BundlingState | null;
   bundledTens: BundlingState | null;
 }
@@ -83,7 +107,7 @@ export interface ValidationResult {
 export interface LearningEventLike { event_type?: string; type?: string; step?: string; help_level?: number; helpLevel?: number; actual_value?: number | null | undefined; actualValue?: number | null | undefined; }
 
 export function createAdditionTask(left: number, right: number): AdditionTask {
-  if (!Number.isInteger(left) || !Number.isInteger(right) || left < 0 || right < 0 || left > 999 || right > 999 || left + right > 1000) {
+  if (!isAdditionTaskInScope(left, right)) {
     throw new Error("ADDITION_TASK_OUT_OF_SCOPE");
   }
   const leftDigits = toDigits(left);
@@ -95,11 +119,12 @@ export function createAdditionTask(left: number, right: number): AdditionTask {
   const hundredsIncludingCarry = leftDigits.hundreds + rightDigits.hundreds + toHundreds;
   const result = left + right;
   const toThousands = Math.floor(hundredsIncludingCarry / 10);
-  return { operation: "addition", left, right, result, leftDigits, rightDigits, columnSums: { ones, tensIncludingCarry, hundredsIncludingCarry }, carries: { toTens, toHundreds, toThousands }, resultDigits: toDigits(result) };
+  const resultDigits = toDigits(result);
+  return { operation: "addition", left, right, result, leftDigits, rightDigits, columnSums: { ones, tensIncludingCarry, hundredsIncludingCarry }, carries: { toTens, toHundreds, toThousands, toTenThousands: carryFromColumn(left, right, "thousands"), toHundredThousands: carryFromColumn(left, right, "ten_thousands"), toMillions: carryFromColumn(left, right, "hundred_thousands") }, resultDigits };
 }
 
 export function isAdditionTaskInScope(left: number, right: number): boolean {
-  return Number.isInteger(left) && Number.isInteger(right) && left >= 0 && right >= 0 && left <= 999 && right <= 999 && left + right <= 1000;
+  return Number.isInteger(left) && Number.isInteger(right) && left >= 0 && right >= 0 && left <= ADDITION_MAX_RESULT && right <= ADDITION_MAX_RESULT && left + right <= ADDITION_MAX_RESULT;
 }
 
 export function getAdditionBuildSteps(task: AdditionTask): WorkedExampleStep[] {
@@ -147,7 +172,7 @@ export function getVisibleWrittenAdditionStateForMode(task: AdditionTask, mode: 
 
 export function getVisiblePlaceValueStateForMode(task: AdditionTask, mode: AdditionMode, stepIndex = 0): VisiblePlaceValueState {
   if (mode === "worked_example") return getVisiblePlaceValueState(task, stepIndex);
-  return { showLeft: true, showRight: true, highlightBundledOnes: false, highlightBundledTens: false, showCarryToTens: false, showCarryToHundreds: false, showCarryToThousands: false, bundledOnes: null, bundledTens: null };
+  return { showLeft: true, showRight: true, highlightBundledOnes: false, highlightBundledTens: false, showCarryToTens: false, showCarryToHundreds: false, showCarryToThousands: false, showCarryToTenThousands: false, showCarryToHundredThousands: false, showCarryToMillions: false, bundledOnes: null, bundledTens: null };
 }
 
 export function getActiveColumnForMode(task: AdditionTask, mode: AdditionMode, stepIndex = 0, activePracticeStep?: AdditionStep): AdditionColumn | "result" | undefined {
@@ -157,27 +182,30 @@ export function getActiveColumnForMode(task: AdditionTask, mode: AdditionMode, s
 }
 
 export function generateAdditionSuggestion(options: AdditionSuggestionOptions = {}): Pick<AdditionTask, "operation" | "left" | "right" | "result"> {
-  const maxValue = Math.min(options.maxValue ?? 999, 999);
+  const maxResult = Math.min(options.maxResult ?? (options.allowResultAbove999 ? 1000 : ADDITION_MAX_RESULT), ADDITION_MAX_RESULT);
   const minDigits = options.minDigits ?? 2;
   const maxDigits = options.maxDigits ?? 3;
-  const preferCarry = options.preferCarry ?? true;
-  const maxResult = options.allowResultAbove999 ? 1000 : 999;
   const minValue = minDigits <= 1 ? 0 : 10 ** (minDigits - 1);
-  const maxByDigits = 10 ** maxDigits - 1;
-  const upper = Math.min(maxValue, maxByDigits);
-  const needsCarry = options.requireCarry ? true : preferCarry && Math.random() < 0.75;
-  for (let i = 0; i < 800; i++) {
-    const left = randomInt(minValue, upper);
-    const right = randomInt(minValue, Math.min(upper, maxResult - left));
-    if (!isAdditionTaskInScope(left, right) || left + right > maxResult) continue;
-    if (needsCarry && !hasAnyCarry(left, right)) continue;
-    return { operation: "addition", left, right, result: left + right };
+  const maxByDigits = Math.min(10 ** maxDigits - 1, options.maxValue ?? maxResult, maxResult);
+  const avoid = new Set((options.avoidRecentTasks ?? []).map((t) => `${t.left}+${t.right}`));
+  const preferCarry = options.preferCarry ?? true;
+  const matches = (left: number, right: number) => {
+    if (!isAdditionTaskInScope(left, right) || left + right > maxResult) return false;
+    const analysis = analyzeAdditionTask(left, right);
+    if (avoid.has(`${left}+${right}`) || avoid.has(`${right}+${left}`)) return false;
+    if (options.requireCarry && !analysis.hasCarry) return false;
+    if (options.requireMultipleCarries && analysis.carryCount < 2) return false;
+    if (options.requireInnerZero && !analysis.containsInnerZero) return false;
+    if (options.maxVisibleColumns && analysis.visibleColumns.length > options.maxVisibleColumns) return false;
+    if (options.allowedDifficultyClasses?.length && !options.allowedDifficultyClasses.includes(analysis.difficultyClass)) return false;
+    return true;
+  };
+  for (let i = 0; i < 2500; i++) {
+    const left = randomInt(minValue, maxByDigits);
+    const right = randomInt(0, Math.min(maxByDigits, maxResult - left));
+    if (matches(left, right) && (!preferCarry || Math.random() < 0.25 || analyzeAdditionTask(left, right).hasCarry)) return { operation: "addition", left, right, result: left + right };
   }
-  for (let left = minValue; left <= upper; left++) {
-    for (let right = minValue; right <= Math.min(upper, maxResult - left); right++) {
-      if ((!options.requireCarry || hasAnyCarry(left, right)) && isAdditionTaskInScope(left, right)) return { operation: "addition", left, right, result: left + right };
-    }
-  }
+  for (let left = minValue; left <= maxByDigits; left++) for (let right = 0; right <= Math.min(maxByDigits, maxResult - left); right++) if (matches(left, right)) return { operation: "addition", left, right, result: left + right };
   throw new Error("NO_ADDITION_SUGGESTION_IN_SCOPE");
 }
 
@@ -197,7 +225,7 @@ export function getVisibleWrittenAdditionState(task: AdditionTask, stepIndex: nu
 
 export function getVisiblePlaceValueState(task: AdditionTask, stepIndex: number): VisiblePlaceValueState {
   const phase = phaseAt(task, stepIndex);
-  return { showLeft: phase !== "ready", showRight: !["ready", "first_number"].includes(phase), highlightBundledOnes: ["bundle_ones"].includes(phase), highlightBundledTens: ["bundle_tens"].includes(phase), showCarryToTens: ["bundle_ones", "tens_sum", "bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toTens > 0, showCarryToHundreds: ["bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toHundreds > 0, showCarryToThousands: ["hundreds_sum", "result"].includes(phase) && task.carries.toThousands > 0, bundledOnes: getBundlingState(task, stepIndex, "ones"), bundledTens: getBundlingState(task, stepIndex, "tens") };
+  return { showLeft: phase !== "ready", showRight: !["ready", "first_number"].includes(phase), highlightBundledOnes: ["bundle_ones"].includes(phase), highlightBundledTens: ["bundle_tens"].includes(phase), showCarryToTens: ["bundle_ones", "tens_sum", "bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toTens > 0, showCarryToHundreds: ["bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toHundreds > 0, showCarryToThousands: ["hundreds_sum", "result"].includes(phase) && task.carries.toThousands > 0, showCarryToTenThousands: false, showCarryToHundredThousands: false, showCarryToMillions: false, bundledOnes: getBundlingState(task, stepIndex, "ones"), bundledTens: getBundlingState(task, stepIndex, "tens") };
 }
 
 export function getActiveColumn(task: AdditionTask, stepIndex: number): AdditionColumn | "result" | undefined {
@@ -250,8 +278,7 @@ export function getExpectedCarry(task: AdditionTask, column: "tens" | "hundreds"
 export function getExpectedResultDigit(task: AdditionTask, column: "ones" | "tens" | "hundreds"): number { return task.resultDigits[column]; }
 
 export function getVisibleColumns(task: AdditionTask): AdditionColumn[] {
-  const maxPlace = task.result >= 1000 ? 1000 : Math.max(task.left, task.right, task.result) >= 100 ? 100 : Math.max(task.left, task.right, task.result) >= 10 ? 10 : 1;
-  return (["thousands", "hundreds", "tens", "ones"] as AdditionColumn[]).filter((column) => placeValue(column) <= maxPlace);
+  return analyzeAdditionTask(task.left, task.right).visibleColumns;
 }
 
 export function getBundlingState(task: AdditionTask, stepIndex: number, column?: "ones" | "tens"): BundlingState | null {
@@ -260,6 +287,72 @@ export function getBundlingState(task: AdditionTask, stepIndex: number, column?:
   if ((column === undefined || column === "tens") && task.carries.toHundreds > 0 && ["bundle_tens"].includes(phase)) return { from: "tens", to: "hundreds", bundledCount: 10, remainingCount: task.resultDigits.tens, carryCount: 1, active: true };
   return null;
 }
+
+const ORDERED_COLUMNS: PlaceValueColumn[] = ["millions", "hundred_thousands", "ten_thousands", "thousands", "hundreds", "tens", "ones"];
+const ASC_COLUMNS: PlaceValueColumn[] = ["ones", "tens", "hundreds", "thousands", "ten_thousands", "hundred_thousands", "millions"];
+
+export function analyzeAdditionTask(left: number, right: number): AdditionTaskAnalysis {
+  if (!isAdditionTaskInScope(left, right)) throw new Error("ADDITION_TASK_OUT_OF_SCOPE");
+  const result = left + right;
+  const maxNumber = Math.max(left, right, result);
+  const maxColumn = ASC_COLUMNS.slice().reverse().find((c) => maxNumber >= placeValue(c)) ?? "ones";
+  const visibleColumns = ORDERED_COLUMNS.filter((c) => placeValue(c) <= placeValue(maxColumn));
+  const carryColumns = ASC_COLUMNS.slice(0, -1).filter((c) => carryFromColumn(left, right, c) > 0);
+  const digitsBefore = Math.max(digitCount(left), digitCount(right));
+  const resultExpandsDigits = digitCount(result) > digitsBefore;
+  const containsInnerZero = hasInnerZero(left) || hasInnerZero(right);
+  const resultContainsZero = String(result).includes("0");
+  return { operation: "addition", left, right, result, visibleColumns, maxColumn, hasCarry: carryColumns.length > 0, carryColumns, carryCount: carryColumns.length, resultExpandsDigits, containsInnerZero, resultContainsZero, difficultyClass: classifyAdditionDifficulty({ left, right, result, visibleColumns, maxColumn, hasCarry: carryColumns.length > 0, carryColumns, carryCount: carryColumns.length, resultExpandsDigits, containsInnerZero, resultContainsZero }) };
+}
+
+function classifyAdditionDifficulty(a: Omit<AdditionTaskAnalysis, "operation" | "difficultyClass">): AdditionDifficultyClass {
+  const d = a.visibleColumns.length;
+  if (a.result >= 1_000_000 || d >= 7) return "A14_UP_TO_ONE_MILLION";
+  if (d >= 6) return "A13_HUNDRED_THOUSANDS";
+  if (d >= 5) return "A12_TEN_THOUSANDS";
+  if (d >= 4) return a.hasCarry ? "A11_THOUSANDS_WITH_CARRY" : "A10_THOUSANDS_NO_CARRY";
+  if (a.containsInnerZero) return "A9_WITH_INNER_ZERO";
+  if (d <= 1) return a.hasCarry ? "A2_SINGLE_DIGIT_WITH_CARRY" : "A1_SINGLE_DIGIT_NO_CARRY";
+  if (d === 2) return a.resultExpandsDigits ? "A5_TWO_DIGIT_RESULT_EXPANDS" : a.carryCount === 1 ? "A4_TWO_DIGIT_ONE_CARRY" : "A3_TWO_DIGIT_NO_CARRY";
+  if (a.carryCount > 1 || a.resultExpandsDigits) return "A8_THREE_DIGIT_MULTIPLE_CARRIES";
+  return a.carryCount === 1 ? "A7_THREE_DIGIT_ONE_CARRY" : "A6_THREE_DIGIT_NO_CARRY";
+}
+
+export const ADDITION_SKILL_KEYS = ["add.place_alignment", "add.ones_sum", "add.ones_result_digit", "add.ones_to_tens_carry", "add.tens_sum_with_carry", "add.tens_result_digit", "add.tens_to_hundreds_carry", "add.hundreds_sum_with_carry", "add.multi_carry", "add.inner_zero", "add.result_reading", "add.independent_practice", "add.worked_example_usage", "add.help_usage", "add.thousands", "add.ten_thousands", "add.hundred_thousands", "add.million"] as const;
+
+export function updateAdditionSkillStates(previousStates: SkillState[], learningEvents: AdditionLearningEventLike[]): SkillState[] {
+  const map = new Map(previousStates.map((s) => [s.skillKey, { ...s }]));
+  const ensure = (skillKey: string) => map.get(skillKey) ?? { skillKey, status: "unseen" as SkillStatus, evidenceCount: 0, successCount: 0, helpCount: 0, repairCount: 0 };
+  for (const event of learningEvents) {
+    const key = skillKeyForEvent(event); if (!key && event.event_type !== "session_mood_reported") continue;
+    if (event.event_type === "session_mood_reported") { const s = ensure("add.independent_practice"); s.metadata_json = { ...s.metadata_json, lastMood: event.mood }; map.set(s.skillKey, s); continue; }
+    const s = ensure(key!); s.evidenceCount++; s.lastPracticedAt = event.created_at ?? new Date().toISOString();
+    if (event.event_type === "correct_partial_step" || event.type === "correct_partial_step") { s.successCount++; s.status = promoteStatus(s.status); }
+    if (event.event_type === "help_requested" || event.type === "help_requested") { s.helpCount++; s.status = "with_help"; }
+    if (event.event_type === "incorrect_partial_step" || event.type === "incorrect_partial_step") { s.status = s.helpCount > 0 ? "with_help" : "needs_repair"; }
+    if (event.event_type === "repair_step_completed" || event.type === "repair_step_completed") { s.repairCount++; s.status = s.status === "needs_repair" ? "with_help" : "guided_success"; }
+    map.set(s.skillKey, s);
+  }
+  return Array.from(map.values());
+}
+
+export function suggestNextAdditionTask(childSkillStates: SkillState[], recentEvents: AdditionLearningEventLike[], options: AdditionSuggestionOptions = {}) {
+  const helpOrRepair = recentEvents.filter((e) => e.event_type === "help_requested" || e.event_type === "repair_step_completed" || e.event_type === "incorrect_partial_step").length;
+  const successes = recentEvents.filter((e) => e.event_type === "correct_partial_step").length;
+  const mood = recentEvents.find((e) => e.event_type === "session_mood_reported")?.mood;
+  const conservative = helpOrRepair >= 2 || mood === "hard" || mood === "too_much";
+  const allowedDifficultyClasses = options.allowedDifficultyClasses ?? (conservative ? ["A3_TWO_DIGIT_NO_CARRY", "A4_TWO_DIGIT_ONE_CARRY"] : successes >= 4 ? ["A4_TWO_DIGIT_ONE_CARRY", "A5_TWO_DIGIT_RESULT_EXPANDS", "A6_THREE_DIGIT_NO_CARRY"] : ["A3_TWO_DIGIT_NO_CARRY", "A4_TWO_DIGIT_ONE_CARRY"]);
+  return generateAdditionSuggestion({ ...options, allowedDifficultyClasses, preferCarry: !conservative, ...(conservative ? { maxVisibleColumns: 2 } : {}) });
+}
+
+function skillKeyForEvent(event: AdditionLearningEventLike): string | undefined {
+  const step = event.step;
+  if (step === "ones_sum") return "add.ones_sum"; if (step === "ones_digit" || step === "ones_result_digit") return "add.ones_result_digit"; if (step === "carry_to_tens" || step === "ones_to_tens_carry") return "add.ones_to_tens_carry"; if (step === "tens_sum") return "add.tens_sum_with_carry"; if (step === "tens_digit") return "add.tens_result_digit"; if (step === "carry_to_hundreds") return "add.tens_to_hundreds_carry"; if (step === "hundreds_sum") return "add.hundreds_sum_with_carry"; if (event.repair_type === "bundling_ones_to_tens" || event.repairType === "bundling_ones_to_tens") return "add.ones_to_tens_carry"; return undefined;
+}
+function promoteStatus(status: SkillStatus): SkillStatus { return status === "stable" ? "stable" : status === "independent_without_material" ? "stable" : status === "independent_with_material" ? "independent_without_material" : status === "guided_success" ? "independent_with_material" : "guided_success"; }
+function digitCount(n: number): number { return String(Math.max(0, n)).length; }
+function hasInnerZero(n: number): boolean { return /^\d+0\d+$/.test(String(n)); }
+function carryFromColumn(left: number, right: number, column: PlaceValueColumn): number { const value = placeValue(column); const next = value * 10; if (next > 1_000_0000) return 0; return Math.floor(((left % next) + (right % next)) / next); }
 
 function guidedStepAt(task: AdditionTask, stepIndex: number): AdditionStep | undefined {
   return getAdditionBuildSteps(task)[stepIndex]?.step;
@@ -271,11 +364,11 @@ function columnForAdditionStep(step: AdditionStep | undefined): AdditionColumn |
   if (step === "carry_to_hundreds" || step === "hundreds_sum") return "hundreds";
   return "result";
 }
-function hasAnyCarry(left: number, right: number): boolean { return createAdditionTask(left, right).carries.toTens > 0 || createAdditionTask(left, right).carries.toHundreds > 0 || createAdditionTask(left, right).carries.toThousands > 0; }
+function hasAnyCarry(left: number, right: number): boolean { return analyzeAdditionTask(left, right).hasCarry; }
 function randomInt(min: number, max: number): number { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
-function placeValue(column: AdditionColumn): number { return column === "thousands" ? 1000 : column === "hundreds" ? 100 : column === "tens" ? 10 : 1; }
-function toDigits(value: number): PlaceDigits { return { thousands: Math.floor(value / 1000), hundreds: Math.floor((value % 1000) / 100), tens: Math.floor((value % 100) / 10), ones: value % 10 }; }
+function placeValue(column: AdditionColumn): number { return ({ ones: 1, tens: 10, hundreds: 100, thousands: 1000, ten_thousands: 10000, hundred_thousands: 100000, millions: 1000000 })[column]; }
+function toDigits(value: number): PlaceDigits { return { millions: Math.floor(value / 1000000), hundred_thousands: Math.floor((value % 1000000) / 100000), ten_thousands: Math.floor((value % 100000) / 10000), thousands: Math.floor((value % 10000) / 1000), hundreds: Math.floor((value % 1000) / 100), tens: Math.floor((value % 100) / 10), ones: value % 10 }; }
 function parseValue(value: string | number): number | null { const parsed = typeof value === "number" ? value : Number(value.trim()); return Number.isInteger(parsed) ? parsed : null; }
 function positiveFeedback(step: AdditionStep): string { return ({ ones_sum: "Du hast die Einer richtig gerechnet.", ones_digit: "Du hast die richtige Einerstelle benutzt.", carry_to_tens: "Du hast den Übertrag entdeckt.", tens_sum: "Du hast die Zehner mit Übertrag gerechnet.", tens_digit: "Du hast die Zehnerstelle richtig gefüllt.", carry_to_hundreds: "Du hast den Hunderter-Übertrag entdeckt.", hundreds_sum: "Du hast die Hunderter richtig gerechnet.", final_result: "Du hast das Ergebnis geschafft." })[step]; }
 function gentleFeedback(task: AdditionTask, step: AdditionStep, value: number | null): string { return analyzeAdditionMistake(task, step, value).message; }
