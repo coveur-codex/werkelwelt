@@ -111,10 +111,14 @@ export type LearningMode = "worked_example" | "guided_mode" | "practice_mode";
 /** Granular MVP learning telemetry event names. */
 export type AdditionLearningEventType =
   | "task_started"
+  | "mode_selected"
   | "worked_example_started"
+  | "worked_example_step_viewed"
   | "worked_example_completed"
   | "guided_started"
   | "practice_started"
+  | "guided_step_answered"
+  | "practice_checked"
   | "correct_partial_step"
   | "incorrect_partial_step"
   | "help_requested"
