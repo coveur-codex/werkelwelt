@@ -8,8 +8,8 @@ const areas = [
     text: "Ein ruhiger Platz für Begleitung, Einblicke und zukünftige Einstellungen.",
   },
   {
-    title: "Demo-Modus",
-    text: "Ein unverbindlicher Einstieg, um Werkelwelt später ohne Anmeldung kennenzulernen.",
+    title: "Aufgabe vorführen",
+    text: "Eine konkrete Aufgabe wird Schritt für Schritt vorgerechnet, bevor das Kind selbst übernimmt.",
   },
 ];
 

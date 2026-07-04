@@ -23,7 +23,7 @@ export interface ChildProfile {
 /** Rich progression state for a skill beyond a simple correct/incorrect flag. */
 export type SkillStateStage =
   | "unseen"
-  | "demo_seen"
+  | "worked_example_seen"
   | "guided"
   | "with_help"
   | "independent_with_material"
@@ -46,14 +46,14 @@ export interface LearningSession {
   childProfileId: EntityId;
   startedAt: string;
   endedAt?: string;
-  mode?: "practice" | "guided" | "review" | "paper_transfer";
+  mode?: "worked_example" | "guided_mode" | "practice_mode" | "review" | "paper_transfer";
 }
 
 /** Event names for granular learning telemetry, including partial successes. */
 export type LearningEventType =
   | "correct_partial_step"
   | "help_requested"
-  | "demo_requested"
+  | "worked_example_requested"
   | "repair_step_completed"
   | "paper_transfer_attempted";
 
@@ -75,11 +75,11 @@ export interface HelpUsage {
   helpTypes?: Array<"hint" | "step" | "explanation" | "material">;
 }
 
-/** Tracks demo usage separately from help usage for didactic analysis. */
-export interface DemoUsage {
+/** Tracks worked-example usage separately from help usage for didactic analysis. */
+export interface WorkedExampleUsage {
   requestedCount: number;
   lastRequestedAt?: string;
-  demoKeys?: string[];
+  workedExampleKeys?: string[];
 }
 
 /** Reward event assigned after meaningful learning progress. */
