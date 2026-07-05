@@ -213,10 +213,10 @@ export function getActiveColumnForMode(task: AdditionTask, mode: AdditionMode, s
 export function generateAdditionSuggestion(options: AdditionSuggestionOptions = {}): Pick<AdditionTask, "operation" | "left" | "right" | "result"> {
   const directionClasses = difficultyClassesForDirection(options.currentDifficultyClass, options.direction);
   const effectiveAllowed = options.allowedDifficultyClasses ?? directionClasses;
-  const currentColumns = options.currentDifficultyClass ? visibleColumnsForDifficulty(options.currentDifficultyClass) : undefined;
+  const currentOperandDigits = options.currentDifficultyClass ? operandDigitsForDifficulty(options.currentDifficultyClass) : undefined;
   const maxResult = Math.min(options.maxResult ?? (options.allowResultAbove999 ? 1000 : ADDITION_MAX_RESULT), ADDITION_MAX_RESULT);
-  const minDigits = options.minDigits ?? (currentColumns ?? (options.direction === "easier" ? 1 : 2));
-  const maxDigits = options.maxDigits ?? Math.min(7, Math.max(1, currentColumns ?? 3) + (options.direction === "harder" ? 1 : 0)) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  const minDigits = options.minDigits ?? (currentOperandDigits ?? (options.direction === "easier" ? 1 : 2));
+  const maxDigits = options.maxDigits ?? Math.min(7, Math.max(1, currentOperandDigits ?? 3) + (options.direction === "harder" ? 1 : 0)) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
   const minValue = minDigits <= 1 ? 0 : 10 ** (minDigits - 1);
   const maxByDigits = Math.min(10 ** maxDigits - 1, options.maxValue ?? maxResult, maxResult);
   const avoid = new Set((options.avoidRecentTasks ?? []).map((t) => `${t.left}+${t.right}`));
@@ -247,6 +247,15 @@ function difficultyClassesForDirection(current: AdditionDifficultyClass | undefi
   if (direction === "easier") return [additionDifficultyOrder[Math.max(0, currentIndex - 1)]!, current];
   if (direction === "harder") return [current, additionDifficultyOrder[Math.min(additionDifficultyOrder.length - 1, currentIndex + 1)]!];
   return [current];
+}
+
+function operandDigitsForDifficulty(difficulty: AdditionDifficultyClass): 1 | 2 | 3 | 4 | 5 | 6 {
+  if (difficulty === "A1_SINGLE_DIGIT_NO_CARRY" || difficulty === "A2_SINGLE_DIGIT_WITH_CARRY") return 1;
+  if (difficulty === "A3_TWO_DIGIT_NO_CARRY" || difficulty === "A4_TWO_DIGIT_ONE_CARRY" || difficulty === "A5_TWO_DIGIT_RESULT_EXPANDS") return 2;
+  if (difficulty === "A6_THREE_DIGIT_NO_CARRY" || difficulty === "A7_THREE_DIGIT_ONE_CARRY" || difficulty === "A8_THREE_DIGIT_MULTIPLE_CARRIES" || difficulty === "A9_WITH_INNER_ZERO") return 3;
+  if (difficulty === "A10_THOUSANDS_NO_CARRY" || difficulty === "A11_THOUSANDS_WITH_CARRY") return 4;
+  if (difficulty === "A12_TEN_THOUSANDS") return 5;
+  return 6;
 }
 
 function visibleColumnsForDifficulty(difficulty: AdditionDifficultyClass): 1 | 2 | 3 | 4 | 5 | 6 | 7 {

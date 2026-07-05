@@ -93,3 +93,8 @@ assert.equal(repairBlocked.reason, "kept_similar_due_to_recent_help_or_mood");
 const stableAllowed = suggestAdditionTaskByDifficultyDirection({ currentDifficultyClass: "A4_TWO_DIGIT_ONE_CARRY", direction: "harder", childSkillStates: [{ skillKey: "add.ones_to_tens_carry", status: "stable", evidenceCount: 5, successCount: 5, helpCount: 0, repairCount: 0 }], recentEvents: [] });
 assert.equal(stableAllowed.appliedDifficultyClass, "A5_TWO_DIGIT_RESULT_EXPANDS");
 assert.ok(stableAllowed.task.result <= 1_000_000);
+
+const cappedHarder = suggestAdditionTaskByDifficultyDirection({ currentDifficultyClass: "A14_UP_TO_ONE_MILLION", direction: "harder", recentEvents: [], options: { avoidRecentTasks: [{ left: 1000000, right: 0 }] } });
+assert.equal(cappedHarder.appliedDifficultyClass, "A14_UP_TO_ONE_MILLION");
+assert.ok(cappedHarder.task.result <= 1_000_000);
+assert.notEqual(`${cappedHarder.task.left}+${cappedHarder.task.right}`, "1000000+0");
