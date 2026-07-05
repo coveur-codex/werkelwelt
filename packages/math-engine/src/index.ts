@@ -459,3 +459,143 @@ function toDigits(value: number): PlaceDigits { return { millions: Math.floor(va
 function parseValue(value: string | number): number | null { const parsed = typeof value === "number" ? value : Number(value.trim()); return Number.isInteger(parsed) ? parsed : null; }
 function positiveFeedback(step: AdditionStep): string { return ({ ones_sum: "Du hast die Einer richtig gerechnet.", ones_digit: "Du hast die richtige Einerstelle benutzt.", carry_to_tens: "Du hast den Übertrag entdeckt.", tens_sum: "Du hast die Zehner mit Übertrag gerechnet.", tens_digit: "Du hast die Zehnerstelle richtig gefüllt.", carry_to_hundreds: "Du hast den Hunderter-Übertrag entdeckt.", hundreds_sum: "Du hast die Hunderter richtig gerechnet.", final_result: "Du hast das Ergebnis geschafft." })[step]; }
 function gentleFeedback(task: AdditionTask, step: AdditionStep, value: number | null): string { return analyzeAdditionMistake(task, step, value).message; }
+
+export type WerkelLearningEventType =
+  | "session_started"
+  | "task_started"
+  | "mode_selected"
+  | "correct_partial_step"
+  | "incorrect_partial_step"
+  | "help_requested"
+  | "repair_started"
+  | "repair_step_completed"
+  | "task_completed"
+  | "task_abandoned"
+  | "points_awarded"
+  | "session_mood_reported"
+  | "session_completed";
+
+export type RewardReason =
+  | "task_started"
+  | "correct_partial_step"
+  | "carry_discovered"
+  | "help_used"
+  | "repair_completed"
+  | "task_completed"
+  | "improved_after_error"
+  | "mood_reported";
+
+export interface RewardEventInput {
+  id?: string;
+  childProfileId: string;
+  sessionId?: string;
+  learningEventId?: string;
+  reason: RewardReason;
+  points: number;
+  createdAt?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface RewardEvent extends Required<Pick<RewardEventInput, "childProfileId" | "reason" | "points">> {
+  id: string;
+  sessionId?: string;
+  learningEventId?: string;
+  createdAt: string;
+  metadata?: Record<string, unknown>;
+}
+
+export const POINT_RULES = {
+  TASK_STARTED: 1,
+  CORRECT_PARTIAL_STEP: 1,
+  CARRY_DISCOVERED: 1,
+  HELP_USED: 1,
+  REPAIR_COMPLETED: 2,
+  TASK_COMPLETED: 2,
+  IMPROVED_AFTER_ERROR: 1,
+  MOOD_REPORTED: 1,
+} as const;
+
+export interface RewardableLearningEvent {
+  id?: string;
+  event_type?: string;
+  type?: string;
+  childProfileId?: string;
+  child_profile_id?: string;
+  sessionId?: string;
+  session_id?: string;
+  step?: string;
+  created_at?: string;
+  metadata_json?: Record<string, unknown>;
+}
+
+export function calculateRewardEventsForLearningEvent(event: RewardableLearningEvent, now = new Date().toISOString()): RewardEvent[] {
+  const type = event.event_type ?? event.type;
+  const childProfileId = event.childProfileId ?? event.child_profile_id;
+  if (!childProfileId) return [];
+  const reward = (reason: RewardReason, points: number): RewardEvent => {
+    const output: RewardEvent = { id: rewardEventId(reason, event.id, now), childProfileId, reason, points: Math.max(0, points), createdAt: now };
+    const sessionId = event.sessionId ?? event.session_id;
+    if (sessionId) output.sessionId = sessionId;
+    if (event.id) output.learningEventId = event.id;
+    if (event.metadata_json) output.metadata = event.metadata_json;
+    return output;
+  };
+  if (type === "task_started") return [reward("task_started", POINT_RULES.TASK_STARTED)];
+  if (type === "correct_partial_step") {
+    const rewards = [reward("correct_partial_step", POINT_RULES.CORRECT_PARTIAL_STEP)];
+    if (String(event.step ?? "").startsWith("carry_")) rewards.push(reward("carry_discovered", POINT_RULES.CARRY_DISCOVERED));
+    return rewards;
+  }
+  if (type === "help_requested") return [reward("help_used", POINT_RULES.HELP_USED)];
+  if (type === "repair_step_completed") return [reward("repair_completed", POINT_RULES.REPAIR_COMPLETED)];
+  if (type === "task_completed") return [reward("task_completed", POINT_RULES.TASK_COMPLETED)];
+  if (type === "session_mood_reported") return [reward("mood_reported", POINT_RULES.MOOD_REPORTED)];
+  return [];
+}
+
+function rewardEventId(reason: string, learningEventId: string | undefined, now: string) {
+  return `reward-${reason}-${learningEventId ?? Math.random().toString(36).slice(2)}-${now}`;
+}
+
+export function calculatePointsForSessionEvents(events: RewardableLearningEvent[]): RewardEvent[] {
+  return events.flatMap((event) => calculateRewardEventsForLearningEvent(event, event.created_at ?? new Date().toISOString()));
+}
+
+export function sumRewardPoints(events: Array<{ points: number }>): number {
+  return events.reduce((sum, event) => sum + Math.max(0, event.points), 0);
+}
+
+export interface WerkelSessionState {
+  id: string;
+  childProfileId: string;
+  operation: "addition";
+  status: "active" | "completed" | "abandoned";
+  plannedTaskCount: number;
+  completedTaskCount: number;
+  startedAt: string;
+  completedAt?: string;
+  mood?: SessionMood;
+  metadata?: Record<string, unknown>;
+}
+
+export function startWerkelSession(input: { id: string; childProfileId: string; plannedTaskCount?: number; startedAt?: string }): WerkelSessionState {
+  return { id: input.id, childProfileId: input.childProfileId, operation: "addition", status: "active", plannedTaskCount: input.plannedTaskCount ?? 3, completedTaskCount: 0, startedAt: input.startedAt ?? new Date().toISOString() };
+}
+
+export function applyLearningEventToSession(session: WerkelSessionState, event: RewardableLearningEvent): WerkelSessionState {
+  if (session.status !== "active") return session;
+  const type = event.event_type ?? event.type;
+  if (type === "task_completed") {
+    const completedTaskCount = Math.min(session.plannedTaskCount, session.completedTaskCount + 1);
+    return completedTaskCount >= session.plannedTaskCount
+      ? { ...session, completedTaskCount, status: "completed", completedAt: event.created_at ?? new Date().toISOString() }
+      : { ...session, completedTaskCount, status: "active" };
+  }
+  if (type === "session_mood_reported" && event && "mood" in event) {
+    const mood = (event as { mood?: SessionMood }).mood;
+    return mood ? { ...session, mood } : session;
+  }
+  if (type === "session_completed") return { ...session, status: "completed", completedAt: event.created_at ?? new Date().toISOString() };
+  if (type === "task_abandoned") return { ...session, status: "abandoned", completedAt: event.created_at ?? new Date().toISOString() };
+  return session;
+}

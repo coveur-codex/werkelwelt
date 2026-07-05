@@ -98,3 +98,25 @@ const cappedHarder = suggestAdditionTaskByDifficultyDirection({ currentDifficult
 assert.equal(cappedHarder.appliedDifficultyClass, "A14_UP_TO_ONE_MILLION");
 assert.ok(cappedHarder.task.result <= 1_000_000);
 assert.notEqual(`${cappedHarder.task.left}+${cappedHarder.task.right}`, "1000000+0");
+
+import { POINT_RULES, applyLearningEventToSession, calculateRewardEventsForLearningEvent, startWerkelSession, sumRewardPoints } from "../src/index.js";
+
+const childProfileId = "child-test";
+const sessionId = "session-test";
+assert.equal(calculateRewardEventsForLearningEvent({ id: "le-1", childProfileId, sessionId, event_type: "correct_partial_step" })[0]?.points, POINT_RULES.CORRECT_PARTIAL_STEP);
+assert.equal(calculateRewardEventsForLearningEvent({ id: "le-2", childProfileId, sessionId, event_type: "help_requested" })[0]?.points, POINT_RULES.HELP_USED);
+assert.equal(calculateRewardEventsForLearningEvent({ id: "le-3", childProfileId, sessionId, event_type: "repair_step_completed" })[0]?.points, POINT_RULES.REPAIR_COMPLETED);
+assert.equal(calculateRewardEventsForLearningEvent({ id: "le-4", childProfileId, sessionId, event_type: "task_completed" })[0]?.points, POINT_RULES.TASK_COMPLETED);
+assert.equal(calculateRewardEventsForLearningEvent({ id: "le-5", childProfileId, sessionId, event_type: "session_mood_reported" })[0]?.points, POINT_RULES.MOOD_REPORTED);
+assert.ok(calculateRewardEventsForLearningEvent({ id: "le-6", childProfileId, sessionId, event_type: "help_requested" }).every((reward) => reward.points >= 0));
+
+let werkelSession = startWerkelSession({ id: sessionId, childProfileId, plannedTaskCount: 2, startedAt: "2026-01-01T00:00:00.000Z" });
+assert.equal(werkelSession.status, "active");
+werkelSession = applyLearningEventToSession(werkelSession, { childProfileId, sessionId, event_type: "task_completed", created_at: "2026-01-01T00:01:00.000Z" });
+assert.equal(werkelSession.completedTaskCount, 1);
+assert.equal(werkelSession.status, "active");
+werkelSession = applyLearningEventToSession(werkelSession, { childProfileId, sessionId, event_type: "task_completed", created_at: "2026-01-01T00:02:00.000Z" });
+assert.equal(werkelSession.status, "completed");
+werkelSession = applyLearningEventToSession(startWerkelSession({ id: "mood-session", childProfileId }), { childProfileId, sessionId: "mood-session", event_type: "session_mood_reported", mood: "ok" } as any);
+assert.equal(werkelSession.mood, "ok");
+assert.equal(sumRewardPoints([{ points: 1 }, { points: 2 }, { points: -5 }]), 3);
