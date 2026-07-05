@@ -6,6 +6,14 @@ export type AdditionStep =
   | "tens_digit"
   | "carry_to_hundreds"
   | "hundreds_sum"
+  | "carry_to_thousands"
+  | "thousands_sum"
+  | "carry_to_ten_thousands"
+  | "ten_thousands_sum"
+  | "carry_to_hundred_thousands"
+  | "hundred_thousands_sum"
+  | "carry_to_millions"
+  | "millions_sum"
   | "final_result";
 
 export type AdditionMode = "worked_example" | "guided_mode" | "practice_mode";
@@ -46,7 +54,7 @@ export interface VisibleWrittenAdditionState {
   showRight: boolean;
   columns: AdditionColumn[];
   result: Partial<Record<AdditionColumn, string>>;
-  carries: Partial<Record<"thousands" | "hundreds" | "tens", string>>;
+  carries: Partial<Record<Exclude<AdditionColumn, "ones">, string>>;
 }
 
 export type AdditionDifficultyClass =
@@ -185,13 +193,21 @@ export const getAdditionSteps = getAdditionBuildSteps;
 export function getVisibleWrittenAdditionStateForMode(task: AdditionTask, mode: AdditionMode, stepIndex = 0, revealed: Partial<Record<AdditionStep, string>> = {}): VisibleWrittenAdditionState {
   if (mode === "worked_example") return getVisibleWrittenAdditionState(task, stepIndex);
   const result: Partial<Record<AdditionColumn, string>> = {};
-  const carries: Partial<Record<"thousands" | "hundreds" | "tens", string>> = {};
+  const carries: Partial<Record<Exclude<AdditionColumn, "ones">, string>> = {};
   if (mode === "guided_mode" || mode === "practice_mode") {
     if (revealed.ones_digit !== undefined) result.ones = revealed.ones_digit;
     if (revealed.carry_to_tens !== undefined) carries.tens = revealed.carry_to_tens;
     if (revealed.tens_digit !== undefined) result.tens = revealed.tens_digit;
     if (revealed.carry_to_hundreds !== undefined) carries.hundreds = revealed.carry_to_hundreds;
     if (revealed.hundreds_sum !== undefined) result.hundreds = revealed.hundreds_sum;
+    if (revealed.carry_to_thousands !== undefined) carries.thousands = revealed.carry_to_thousands;
+    if (revealed.thousands_sum !== undefined) result.thousands = revealed.thousands_sum;
+    if (revealed.carry_to_ten_thousands !== undefined) carries.ten_thousands = revealed.carry_to_ten_thousands;
+    if (revealed.ten_thousands_sum !== undefined) result.ten_thousands = revealed.ten_thousands_sum;
+    if (revealed.carry_to_hundred_thousands !== undefined) carries.hundred_thousands = revealed.carry_to_hundred_thousands;
+    if (revealed.hundred_thousands_sum !== undefined) result.hundred_thousands = revealed.hundred_thousands_sum;
+    if (revealed.carry_to_millions !== undefined) carries.millions = revealed.carry_to_millions;
+    if (revealed.millions_sum !== undefined) result.millions = revealed.millions_sum;
     if (revealed.final_result !== undefined) {
       for (const column of getVisibleColumns(task)) result[column] = String(task.resultDigits[column]);
     }
@@ -278,7 +294,7 @@ function visibleColumnsForDifficulty(difficulty: AdditionDifficultyClass): 1 | 2
 export function getVisibleWrittenAdditionState(task: AdditionTask, stepIndex: number): VisibleWrittenAdditionState {
   const phase = phaseAt(task, stepIndex);
   const result: Partial<Record<AdditionColumn, string>> = {};
-  const carries: Partial<Record<"thousands" | "hundreds" | "tens", string>> = {};
+  const carries: Partial<Record<Exclude<AdditionColumn, "ones">, string>> = {};
   if (["bundle_ones", "tens_sum", "bundle_tens", "hundreds_sum", "result"].includes(phase)) result.ones = String(task.resultDigits.ones);
   if (["bundle_ones", "tens_sum", "bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toTens > 0) carries.tens = String(task.carries.toTens);
   if (["bundle_tens", "hundreds_sum", "result"].includes(phase)) result.tens = String(task.resultDigits.tens);
@@ -301,7 +317,7 @@ export function getActiveColumn(task: AdditionTask, stepIndex: number): Addition
 function phaseAt(task: AdditionTask, stepIndex: number): AdditionBuildPhase { return getAdditionBuildSteps(task)[Math.max(0, Math.min(stepIndex, getAdditionBuildSteps(task).length - 1))]?.phase ?? "ready"; }
 
 export function expectedValueForStep(task: AdditionTask, step: AdditionStep): number {
-  const map: Record<AdditionStep, number> = { ones_sum: task.columnSums.ones, ones_digit: task.resultDigits.ones, carry_to_tens: task.carries.toTens, tens_sum: task.columnSums.tensIncludingCarry, tens_digit: task.resultDigits.tens, carry_to_hundreds: task.carries.toHundreds, hundreds_sum: task.resultDigits.thousands > 0 ? task.resultDigits.thousands * 10 + task.resultDigits.hundreds : task.resultDigits.hundreds, final_result: task.result };
+  const map: Record<AdditionStep, number> = { ones_sum: task.columnSums.ones, ones_digit: task.resultDigits.ones, carry_to_tens: task.carries.toTens, tens_sum: task.columnSums.tensIncludingCarry, tens_digit: task.resultDigits.tens, carry_to_hundreds: task.carries.toHundreds, hundreds_sum: task.resultDigits.hundreds, carry_to_thousands: task.carries.toThousands, thousands_sum: task.resultDigits.thousands, carry_to_ten_thousands: task.carries.toTenThousands, ten_thousands_sum: task.resultDigits.ten_thousands, carry_to_hundred_thousands: task.carries.toHundredThousands, hundred_thousands_sum: task.resultDigits.hundred_thousands, carry_to_millions: task.carries.toMillions, millions_sum: task.resultDigits.millions, final_result: task.result };
   return map[step];
 }
 
@@ -456,6 +472,10 @@ function columnForAdditionStep(step: AdditionStep | undefined): AdditionColumn |
   if (step === "ones_sum" || step === "ones_digit") return "ones";
   if (step === "carry_to_tens" || step === "tens_sum" || step === "tens_digit") return "tens";
   if (step === "carry_to_hundreds" || step === "hundreds_sum") return "hundreds";
+  if (step === "carry_to_thousands" || step === "thousands_sum") return "thousands";
+  if (step === "carry_to_ten_thousands" || step === "ten_thousands_sum") return "ten_thousands";
+  if (step === "carry_to_hundred_thousands" || step === "hundred_thousands_sum") return "hundred_thousands";
+  if (step === "carry_to_millions" || step === "millions_sum") return "millions";
   return "result";
 }
 function hasAnyCarry(left: number, right: number): boolean { return analyzeAdditionTask(left, right).hasCarry; }
@@ -464,7 +484,7 @@ function randomInt(min: number, max: number): number { return Math.floor(Math.ra
 function placeValue(column: AdditionColumn): number { return ({ ones: 1, tens: 10, hundreds: 100, thousands: 1000, ten_thousands: 10000, hundred_thousands: 100000, millions: 1000000 })[column]; }
 function toDigits(value: number): PlaceDigits { return { millions: Math.floor(value / 1000000), hundred_thousands: Math.floor((value % 1000000) / 100000), ten_thousands: Math.floor((value % 100000) / 10000), thousands: Math.floor((value % 10000) / 1000), hundreds: Math.floor((value % 1000) / 100), tens: Math.floor((value % 100) / 10), ones: value % 10 }; }
 function parseValue(value: string | number): number | null { const parsed = typeof value === "number" ? value : Number(value.trim()); return Number.isInteger(parsed) ? parsed : null; }
-function positiveFeedback(step: AdditionStep): string { return ({ ones_sum: "Du hast die Einer richtig gerechnet.", ones_digit: "Du hast die richtige Einerstelle benutzt.", carry_to_tens: "Du hast den Übertrag entdeckt.", tens_sum: "Du hast die Zehner mit Übertrag gerechnet.", tens_digit: "Du hast die Zehnerstelle richtig gefüllt.", carry_to_hundreds: "Du hast den Hunderter-Übertrag entdeckt.", hundreds_sum: "Du hast die Hunderter richtig gerechnet.", final_result: "Du hast das Ergebnis geschafft." })[step]; }
+function positiveFeedback(step: AdditionStep): string { return ({ ones_sum: "Du hast die Einer richtig gerechnet.", ones_digit: "Du hast die richtige Einerstelle benutzt.", carry_to_tens: "Du hast den Übertrag entdeckt.", tens_sum: "Du hast die Zehner mit Übertrag gerechnet.", tens_digit: "Du hast die Zehnerstelle richtig gefüllt.", carry_to_hundreds: "Du hast den Hunderter-Übertrag entdeckt.", hundreds_sum: "Du hast die Hunderter richtig gerechnet.", carry_to_thousands: "Du hast den Tausender-Übertrag entdeckt.", thousands_sum: "Du hast die Tausender richtig gerechnet.", carry_to_ten_thousands: "Du hast den Zehntausender-Übertrag entdeckt.", ten_thousands_sum: "Du hast die Zehntausender richtig gerechnet.", carry_to_hundred_thousands: "Du hast den Hunderttausender-Übertrag entdeckt.", hundred_thousands_sum: "Du hast die Hunderttausender richtig gerechnet.", carry_to_millions: "Du hast den Millionen-Übertrag entdeckt.", millions_sum: "Du hast die Millionen richtig gerechnet.", final_result: "Du hast das Ergebnis geschafft." })[step]; }
 function gentleFeedback(task: AdditionTask, step: AdditionStep, value: number | null): string { return analyzeAdditionMistake(task, step, value).message; }
 
 export type WerkelLearningEventType =
