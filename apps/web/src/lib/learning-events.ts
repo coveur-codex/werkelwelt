@@ -37,8 +37,9 @@ export function addChildProfile(displayName: string, parentAccountId?: string): 
 export function updateChildProfile(childProfileId: string, input: { displayName?: string; isActive?: boolean }) { const state = getFamilyState(); const children = state.children.map((child) => child.id === childProfileId ? { ...child, ...input, updatedAt: new Date().toISOString() } : child); saveFamilyState({ ...state, children }); }
 export function getAllChildren() { return getFamilyState().children; }
 export function getChildrenForParent(parentAccountId: string) { return getFamilyState().children.filter((child) => child.parentAccountId === parentAccountId && child.isActive !== false); }
-export function selectChildProfile(childProfileId: string) { const state = getFamilyState(); saveFamilyState({ ...state, activeChildProfileId: childProfileId }); }
+export function selectChildProfile(childProfileId: string, parentAccountId?: string) { const state = getFamilyState(); const child = state.children.find((candidate) => candidate.id === childProfileId && candidate.isActive !== false && (!parentAccountId || candidate.parentAccountId === parentAccountId)); if (!child) return false; saveFamilyState({ ...state, activeChildProfileId: childProfileId }); return true; }
 export function getActiveChildProfile() { const state = getFamilyState(); return state.children.find((child) => child.id === state.activeChildProfileId && child.isActive !== false); }
+export function getActiveChildProfileForParent(parentAccountId: string) { const state = getFamilyState(); return state.children.find((child) => child.id === state.activeChildProfileId && child.parentAccountId === parentAccountId && child.isActive !== false); }
 
 export function listLearningSessions(): LearningSession[] { return readJson<LearningSession[]>(SESSIONS_KEY, []); }
 export function saveLearningSession(session: LearningSession) { const sessions = [session, ...listLearningSessions().filter((item) => item.id !== session.id)].slice(0, 100); writeJson(SESSIONS_KEY, sessions); emit(); }
