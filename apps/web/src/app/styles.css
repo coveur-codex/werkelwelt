@@ -424,3 +424,147 @@ button.secondary { background: #e7dcc9; color: #31443b; }
 .admin-table { display: grid; grid-template-columns: 1.2fr 1.4fr 0.7fr 0.8fr 1fr auto; gap: 0.75rem; align-items: center; overflow-x: auto; }
 .button-link { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 0.75rem 1rem; background: #285943; color: white; text-decoration: none; font-weight: 800; }
 .secondary, button.secondary { background: #f4ead7; color: #285943; border: 2px solid #d8c7a1; }
+
+/* Dyskalkulie-freundliche Plus-Werkstatt: Steuerelemente bekommen feste, ruhige Zonen.
+   Dadurch überlappen Schwierigkeit, Aufgabe und Lernweg auch bei 1280px Breite nicht. */
+.addition-app {
+  padding: clamp(10px, 1.4vw, 18px);
+  gap: clamp(12px, 1.4vw, 18px);
+}
+.addition-top {
+  max-height: none;
+  overflow: visible;
+  gap: .75rem;
+  padding: .75rem clamp(.85rem, 1.5vw, 1.2rem);
+}
+.addition-status {
+  align-items: flex-start;
+  display: grid;
+  gap: .5rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.addition-status p:last-child {
+  line-height: 1.25;
+}
+.addition-controls {
+  align-items: stretch;
+  display: grid;
+  gap: .65rem;
+  grid-template-columns: minmax(17rem, .9fr) minmax(24rem, 1.25fr) minmax(22rem, 1fr);
+}
+.addition-controls .difficulty-badge,
+.addition-controls .task-form,
+.addition-controls .compact-modes,
+.addition-controls .round-start {
+  background: rgba(255, 252, 245, .78);
+  border: 2px solid rgba(216, 199, 161, .78);
+  border-radius: 18px;
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+}
+.addition-controls .difficulty-badge {
+  align-content: center;
+  flex: none;
+  grid-template-columns: 1fr;
+  order: 0;
+  padding: .55rem .65rem;
+}
+.difficulty-select-label select {
+  min-height: 2.55rem;
+  width: 100%;
+}
+.addition-controls .task-form {
+  align-content: center;
+  display: grid;
+  flex: none;
+  gap: .45rem;
+  grid-template-columns: minmax(4.75rem, 5.5rem) auto minmax(4.75rem, 5.5rem) minmax(9.75rem, auto) minmax(10.5rem, auto);
+  justify-content: stretch;
+  padding: .55rem .65rem;
+}
+.addition-controls .task-form input,
+.addition-controls .task-form button {
+  width: 100%;
+}
+.addition-controls .input-plus {
+  align-self: center;
+  justify-self: center;
+}
+.addition-controls .compact-modes {
+  align-content: center;
+  box-shadow: none;
+  display: grid;
+  flex: none;
+  gap: .45rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-content: stretch;
+  padding: .55rem;
+}
+.compact-modes button {
+  min-width: 0;
+  white-space: normal;
+}
+.addition-controls .round-start {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  padding: .55rem .65rem;
+}
+.round-start strong,
+.round-start span {
+  align-self: center;
+}
+.round-start strong { grid-column: 1; }
+.round-start span { grid-column: 1; }
+.round-start button { grid-row: 1 / span 2; }
+.addition-workspace {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+.step-panel {
+  min-height: 9.25rem;
+}
+.step-panel .button-row {
+  align-items: center;
+  grid-template-columns: minmax(13rem, 1fr) auto;
+}
+.practice-step {
+  max-width: 100%;
+}
+.digit-picker button,
+.action-buttons button,
+.compact-modes button {
+  touch-action: manipulation;
+}
+
+@media (max-width: 1180px) {
+  .addition-controls {
+    grid-template-columns: minmax(17rem, .8fr) minmax(24rem, 1.2fr);
+  }
+  .addition-controls .compact-modes,
+  .addition-controls .round-start {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 760px) {
+  .addition-status {
+    grid-template-columns: 1fr;
+  }
+  .addition-controls {
+    grid-template-columns: 1fr;
+  }
+  .addition-controls .task-form {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+  .addition-controls .task-form button {
+    grid-column: 1 / -1;
+  }
+  .addition-controls .compact-modes {
+    grid-template-columns: 1fr;
+  }
+  .addition-controls .round-start {
+    grid-template-columns: 1fr;
+  }
+  .round-start button {
+    grid-row: auto;
+  }
+}
