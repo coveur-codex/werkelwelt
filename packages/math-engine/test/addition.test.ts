@@ -71,6 +71,12 @@ assert.ok(analyzeAdditionTask(multi.left, multi.right).carryCount >= 2);
 const avoided = generateAdditionSuggestion({ minDigits: 1, maxDigits: 1, allowedDifficultyClasses: ["A1_SINGLE_DIGIT_NO_CARRY"], avoidRecentTasks: [{ left: 3, right: 4 }] });
 assert.notEqual(`${avoided.left}+${avoided.right}`, "3+4");
 assert.equal(analyzeAdditionTask(avoided.left, avoided.right).difficultyClass, "A1_SINGLE_DIGIT_NO_CARRY");
+
+const allSingleDigitNoCarryTasks = Array.from({ length: 10 }, (_, left) =>
+  Array.from({ length: 10 - left }, (_, right) => ({ left, right })),
+).flat();
+const exhaustedAvoidSuggestion = generateAdditionSuggestion({ allowedDifficultyClasses: ["A1_SINGLE_DIGIT_NO_CARRY"], avoidRecentTasks: allSingleDigitNoCarryTasks });
+assert.equal(analyzeAdditionTask(exhaustedAvoidSuggestion.left, exhaustedAvoidSuggestion.right).difficultyClass, "A1_SINGLE_DIGIT_NO_CARRY");
 const inner = generateAdditionSuggestion({ requireInnerZero: true, maxDigits: 3 });
 assert.equal(analyzeAdditionTask(inner.left, inner.right).containsInnerZero, true);
 for (const difficultyClass of additionDifficultyOrder) {

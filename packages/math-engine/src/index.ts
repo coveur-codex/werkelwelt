@@ -238,10 +238,10 @@ export function generateAdditionSuggestion(options: AdditionSuggestionOptions = 
   const maxByDigits = Math.min(10 ** maxDigits - 1, options.maxValue ?? maxResult, maxResult);
   const avoid = new Set((options.avoidRecentTasks ?? []).map((t) => `${t.left}+${t.right}`));
   const preferCarry = options.preferCarry ?? options.direction !== "easier";
-  const matches = (left: number, right: number) => {
+  const matches = (left: number, right: number, ignoreAvoid = false) => {
     if (!isAdditionTaskInScope(left, right) || left + right > maxResult) return false;
     const analysis = analyzeAdditionTask(left, right);
-    if (avoid.has(`${left}+${right}`) || avoid.has(`${right}+${left}`)) return false;
+    if (!ignoreAvoid && (avoid.has(`${left}+${right}`) || avoid.has(`${right}+${left}`))) return false;
     if (options.requireCarry && !analysis.hasCarry) return false;
     if (options.requireMultipleCarries && analysis.carryCount < 2) return false;
     if (options.requireInnerZero && !analysis.containsInnerZero) return false;
@@ -249,22 +249,27 @@ export function generateAdditionSuggestion(options: AdditionSuggestionOptions = 
     if (effectiveAllowed?.length && !effectiveAllowed.includes(analysis.difficultyClass)) return false;
     return true;
   };
-  for (let i = 0; i < 2500; i++) {
-    const left = randomInt(minValue, maxByDigits);
-    const right = randomInt(0, Math.min(maxByDigits, maxResult - left));
-    if (matches(left, right) && (!preferCarry || Math.random() < 0.25 || analyzeAdditionTask(left, right).hasCarry)) return { operation: "addition", left, right, result: left + right };
-  }
-  for (const difficultyClass of effectiveAllowed ?? []) {
-    const candidate = generateCandidateForAdditionDifficulty(difficultyClass, matches);
-    if (candidate) return candidate;
-  }
-  const exhaustiveLimit = 100_000;
-  let checked = 0;
-  for (let left = minValue; left <= maxByDigits && checked < exhaustiveLimit; left++) {
-    for (let right = 0; right <= Math.min(maxByDigits, maxResult - left) && checked < exhaustiveLimit; right++, checked++) {
-      if (matches(left, right)) return { operation: "addition", left, right, result: left + right };
+  const findSuggestion = (ignoreAvoid = false) => {
+    for (let i = 0; i < 2500; i++) {
+      const left = randomInt(minValue, maxByDigits);
+      const right = randomInt(0, Math.min(maxByDigits, maxResult - left));
+      if (matches(left, right, ignoreAvoid) && (!preferCarry || Math.random() < 0.25 || analyzeAdditionTask(left, right).hasCarry)) return { operation: "addition" as const, left, right, result: left + right };
     }
-  }
+    for (const difficultyClass of effectiveAllowed ?? []) {
+      const candidate = generateCandidateForAdditionDifficulty(difficultyClass, (left, right) => matches(left, right, ignoreAvoid));
+      if (candidate) return candidate;
+    }
+    const exhaustiveLimit = 100_000;
+    let checked = 0;
+    for (let left = minValue; left <= maxByDigits && checked < exhaustiveLimit; left++) {
+      for (let right = 0; right <= Math.min(maxByDigits, maxResult - left) && checked < exhaustiveLimit; right++, checked++) {
+        if (matches(left, right, ignoreAvoid)) return { operation: "addition" as const, left, right, result: left + right };
+      }
+    }
+    return undefined;
+  };
+  const suggestion = findSuggestion(false) ?? (avoid.size ? findSuggestion(true) : undefined);
+  if (suggestion) return suggestion;
   throw new Error("NO_ADDITION_SUGGESTION_IN_SCOPE");
 }
 
