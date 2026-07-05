@@ -4,7 +4,7 @@ export type EntityId = string;
 /** Parent account for later authentication and child profile management. */
 export interface ParentAccount {
   id: EntityId;
-  email: string;
+  email?: string;
   displayName?: string;
   createdAt: string;
   updatedAt: string;
@@ -16,8 +16,10 @@ export interface ChildProfile {
   parentAccountId: EntityId;
   displayName: string;
   birthYear?: number;
+  avatarKey?: string;
+  currentPoints?: number;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 }
 
 /** Rich progression state for a skill beyond a simple correct/incorrect flag. */
@@ -41,11 +43,19 @@ export interface SkillState {
 }
 
 /** A bounded learning session for one child profile. */
+export type SessionMood = "easy" | "ok" | "hard" | "too_much";
+
 export interface LearningSession {
   id: EntityId;
   childProfileId: EntityId;
+  operation?: "addition";
+  status?: "active" | "completed" | "abandoned";
+  plannedTaskCount?: number;
+  completedTaskCount?: number;
   startedAt: string;
   endedAt?: string;
+  completedAt?: string;
+  mood?: SessionMood;
   mode?: "worked_example" | "guided_mode" | "practice_mode" | "review" | "paper_transfer";
 }
 
@@ -87,9 +97,12 @@ export interface RewardEvent {
   id: EntityId;
   childProfileId: EntityId;
   sessionId?: EntityId;
-  rewardKey: string;
+  learningEventId?: EntityId;
+  rewardKey?: string;
   reason: string;
-  awardedAt: string;
+  points: number;
+  awardedAt?: string;
+  createdAt?: string;
 }
 
 /** Later paper-based transfer task linked to a child profile and skill. */
@@ -127,6 +140,9 @@ export type AdditionLearningEventType =
   | "task_completed"
   | "task_abandoned"
   | "session_mood_reported"
+  | "session_started"
+  | "session_completed"
+  | "points_awarded"
   | "difficulty_requested"
   | "difficulty_applied";
 
@@ -134,6 +150,7 @@ export type AdditionLearningEventType =
 export interface AdditionLearningEvent {
   id: EntityId;
   child_profile_id: EntityId;
+  session_id?: EntityId;
   created_at: string;
   operation: Operation;
   mode?: LearningMode;
