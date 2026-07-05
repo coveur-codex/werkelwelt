@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { additionDifficultyOrder, analyzeAdditionTask, createAdditionTask, generateAdditionSuggestion, getVisibleColumns, getVisibleWrittenAdditionState, getVisibleWrittenAdditionStateForMode, updateAdditionSkillStates, validateAdditionStep, suggestAdditionTaskByDifficultyDirection, suggestNextAdditionTask, expectedValueForStep, type AdditionColumn, type AdditionLearningEventLike, type AdditionStep } from "../src/index.js";
+import { additionDifficultyOrder, analyzeAdditionTask, createAdditionTask, generateAdditionSuggestion, getAdditionBuildSteps, getVisibleColumns, getVisibleWrittenAdditionState, getVisibleWrittenAdditionStateForMode, updateAdditionSkillStates, validateAdditionStep, suggestAdditionTaskByDifficultyDirection, suggestNextAdditionTask, expectedValueForStep, type AdditionColumn, type AdditionLearningEventLike, type AdditionStep } from "../src/index.js";
 
 const cases = [
   [3,4,7,["ones"],false,0,false],
@@ -30,6 +30,21 @@ assert.equal(getVisibleWrittenAdditionState(createAdditionTask(12, 7), 99).resul
 assert.equal(getVisibleColumns(createAdditionTask(12, 8)).map((c)=>getVisibleWrittenAdditionState(createAdditionTask(12, 8), 99).result[c]).join(""), "20");
 assert.equal(analyzeAdditionTask(999, 1).resultExpandsDigits, true);
 assert.deepEqual(analyzeAdditionTask(999, 1).carryColumns, ["ones", "tens", "hundreds"]);
+
+const millionWorkedExample = createAdditionTask(999999, 1);
+const millionWorkedSteps = getAdditionBuildSteps(millionWorkedExample);
+const thousandCarryIndex = millionWorkedSteps.findIndex((step) => step.step === "carry_to_thousands");
+const thousandDigitIndex = millionWorkedSteps.findIndex((step) => step.step === "thousands_sum");
+const hundredThousandDigitIndex = millionWorkedSteps.findIndex((step) => step.step === "hundred_thousands_sum");
+assert.ok(thousandCarryIndex > -1);
+assert.ok(thousandDigitIndex === thousandCarryIndex + 1);
+const thousandCarryState = getVisibleWrittenAdditionState(millionWorkedExample, thousandCarryIndex);
+assert.equal(thousandCarryState.carries.thousands, "1");
+assert.equal(thousandCarryState.result.thousands, undefined);
+const thousandDigitState = getVisibleWrittenAdditionState(millionWorkedExample, thousandDigitIndex);
+assert.equal(thousandDigitState.result.thousands, "0");
+assert.equal(thousandDigitState.result.ten_thousands, undefined);
+assert.equal(getVisibleWrittenAdditionState(millionWorkedExample, hundredThousandDigitIndex).result.millions, undefined);
 
 const zeroCarryPractice = createAdditionTask(176, 291);
 const zeroCarryState = getVisibleWrittenAdditionStateForMode(zeroCarryPractice, "practice_mode", 0, { ones_digit: "7", carry_to_tens: "0", tens_digit: "6", carry_to_hundreds: "1", hundreds_sum: "4" });

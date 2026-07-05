@@ -165,7 +165,8 @@ export function isAdditionTaskInScope(left: number, right: number): boolean {
 }
 
 export function getAdditionBuildSteps(task: AdditionTask): WorkedExampleStep[] {
-  const hasHundredsWork = getVisibleColumns(task).includes("hundreds");
+  const visibleColumns = getVisibleColumns(task);
+  const hasHundredsWork = visibleColumns.includes("hundreds");
   const steps: WorkedExampleStep[] = [
     { id: "ready", phase: "ready", title: `${task.left} + ${task.right}`, text: "Wir bauen die Aufgabe jetzt Schritt für Schritt auf.", focus: "layout" },
     { id: "first-number", phase: "first_number", title: "Erste Zahl", text: `Zuerst legen wir die ${task.left}: ${task.leftDigits.hundreds ? `${task.leftDigits.hundreds} Hunderter, ` : ""}${task.leftDigits.tens} Zehner und ${task.leftDigits.ones} Einer.`, focus: "layout" },
@@ -183,7 +184,15 @@ export function getAdditionBuildSteps(task: AdditionTask): WorkedExampleStep[] {
   } else {
     steps.push({ id: "tens-digit", step: "tens_digit", phase: "bundle_tens", title: "Zehner eintragen", text: `${task.resultDigits.tens} Zehner kommen unten in die Zehnerstelle.`, focus: "tens" });
   }
-  if (hasHundredsWork) steps.push({ id: "hundreds-sum", step: "hundreds_sum", phase: "hundreds_sum", title: "Hunderter rechnen", text: `Jetzt die Hunderter: ${task.leftDigits.hundreds} plus ${task.rightDigits.hundreds} plus ${task.carries.toHundreds} sind ${task.resultDigits.hundreds} Hunderter.`, focus: "hundreds" });
+  if (hasHundredsWork) steps.push({ id: "hundreds-sum", step: "hundreds_sum", phase: "hundreds_sum", title: "Hunderter rechnen", text: `Jetzt die Hunderter: ${task.leftDigits.hundreds} plus ${task.rightDigits.hundreds} plus ${task.carries.toHundreds} ergeben die Hunderterstelle ${task.resultDigits.hundreds}.`, focus: "hundreds" });
+  for (const column of ASC_COLUMNS.slice(3)) {
+    if (!visibleColumns.includes(column)) continue;
+    const carryStep = carryStepForColumn(column);
+    const digitStep = digitStepForColumn(column);
+    if (!carryStep || !digitStep) continue;
+    steps.push({ id: carryStep.replaceAll("_", "-"), step: carryStep, phase: "hundreds_sum", title: `Übertrag zu ${placeLabel(column)}`, text: `Zuerst schauen wir auf den Übertrag in die Spalte ${placeLabel(column)}: ${expectedValueForStep(task, carryStep)}.`, focus: column });
+    steps.push({ id: digitStep.replaceAll("_", "-"), step: digitStep, phase: "hundreds_sum", title: `${placeLabel(column)} eintragen`, text: `Dann kommt die ${placeLabel(column)}-Ziffer unten dazu: ${task.resultDigits[column]}.`, focus: column });
+  }
   steps.push({ id: "result", step: "final_result", phase: "result", title: "Ergebnis", text: `Fertig. Das Ergebnis ist ${task.result}.`, focus: "result" });
   return steps;
 }
@@ -365,13 +374,10 @@ export function getVisibleWrittenAdditionState(task: AdditionTask, stepIndex: nu
   const phase = phaseAt(task, stepIndex);
   const result: Partial<Record<AdditionColumn, string>> = {};
   const carries: Partial<Record<Exclude<AdditionColumn, "ones">, string>> = {};
-  if (["bundle_ones", "tens_sum", "bundle_tens", "hundreds_sum", "result"].includes(phase)) result.ones = String(task.resultDigits.ones);
-  if (["bundle_ones", "tens_sum", "bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toTens > 0) carries.tens = String(task.carries.toTens);
-  if (["bundle_tens", "hundreds_sum", "result"].includes(phase)) result.tens = String(task.resultDigits.tens);
-  if (["bundle_tens", "hundreds_sum", "result"].includes(phase) && task.carries.toHundreds > 0) carries.hundreds = String(task.carries.toHundreds);
-  if (["hundreds_sum", "result"].includes(phase) && getVisibleColumns(task).includes("hundreds")) result.hundreds = String(task.resultDigits.hundreds);
-  if (["hundreds_sum", "result"].includes(phase) && task.carries.toThousands > 0) carries.thousands = String(task.carries.toThousands);
-  if (phase === "result") { for (const column of getVisibleColumns(task)) result[column] = String(task.resultDigits[column]); }
+  const maxStepIndex = Math.max(0, Math.min(stepIndex, getAdditionBuildSteps(task).length - 1));
+  for (const workedStep of getAdditionBuildSteps(task).slice(0, maxStepIndex + 1)) {
+    revealWorkedExampleStep(task, workedStep.step, result, carries);
+  }
   return { showLeft: phase !== "ready", showRight: !["ready", "first_number"].includes(phase), columns: getVisibleColumns(task), result, carries };
 }
 
@@ -414,16 +420,14 @@ export const getAdditionWorkedExample = getAdditionSteps;
 
 export function getCurrentStepState(task: AdditionTask, stepIndex: number): { revealed: Partial<Record<AdditionStep, string>>; step: WorkedExampleStep | undefined } {
   const written = getVisibleWrittenAdditionState(task, stepIndex);
-  return {
-    revealed: {
-      ...(written.result.ones ? { ones_digit: written.result.ones } : {}),
-      ...(written.carries.tens ? { carry_to_tens: written.carries.tens } : {}),
-      ...(written.result.tens ? { tens_digit: written.result.tens } : {}),
-      ...(written.carries.hundreds ? { carry_to_hundreds: written.carries.hundreds } : {}),
-      ...(written.result.hundreds ? { hundreds_sum: written.result.hundreds } : {}),
-    },
-    step: getAdditionBuildSteps(task)[stepIndex],
-  };
+  const revealed: Partial<Record<AdditionStep, string>> = {};
+  for (const column of getVisibleColumns(task)) {
+    const digitStep = digitStepForColumn(column);
+    if (digitStep && written.result[column] !== undefined) revealed[digitStep] = written.result[column];
+    const carryStep = carryStepForColumn(column);
+    if (carryStep && column !== "ones" && written.carries[column] !== undefined) revealed[carryStep] = written.carries[column];
+  }
+  return { revealed, step: getAdditionBuildSteps(task)[stepIndex] };
 }
 
 export function getExpectedCarry(task: AdditionTask, column: "tens" | "hundreds"): number { return column === "tens" ? task.carries.toTens : task.carries.toHundreds; }
@@ -534,6 +538,28 @@ function promoteStatus(status: SkillStatus): SkillStatus { return status === "st
 function digitCount(n: number): number { return String(Math.max(0, n)).length; }
 function hasInnerZero(n: number): boolean { return /^\d+0\d+$/.test(String(n)); }
 function carryFromColumn(left: number, right: number, column: PlaceValueColumn): number { const value = placeValue(column); const next = value * 10; if (next > 1_000_0000) return 0; return Math.floor(((left % next) + (right % next)) / next); }
+
+function revealWorkedExampleStep(task: AdditionTask, step: AdditionStep | undefined, result: Partial<Record<AdditionColumn, string>>, carries: Partial<Record<Exclude<AdditionColumn, "ones">, string>>): void {
+  if (!step) return;
+  if (step === "final_result") { for (const column of getVisibleColumns(task)) result[column] = String(task.resultDigits[column]); return; }
+  if (step === "carry_to_tens") { result.ones = String(task.resultDigits.ones); carries.tens = String(task.carries.toTens); return; }
+  if (step === "carry_to_hundreds") { result.tens = String(task.resultDigits.tens); carries.hundreds = String(task.carries.toHundreds); return; }
+  const carryColumn = carryTargetColumnForStep(step);
+  if (carryColumn) { carries[carryColumn] = String(expectedValueForStep(task, step)); return; }
+  const digitColumn = columnForAdditionStep(step);
+  if (digitColumn && digitColumn !== "result") result[digitColumn] = String(task.resultDigits[digitColumn]);
+}
+
+function carryStepForColumn(column: AdditionColumn): AdditionStep | undefined {
+  return ({ tens: "carry_to_tens", hundreds: "carry_to_hundreds", thousands: "carry_to_thousands", ten_thousands: "carry_to_ten_thousands", hundred_thousands: "carry_to_hundred_thousands", millions: "carry_to_millions" } as Partial<Record<AdditionColumn, AdditionStep>>)[column];
+}
+function digitStepForColumn(column: AdditionColumn): AdditionStep | undefined {
+  return ({ ones: "ones_digit", tens: "tens_digit", hundreds: "hundreds_sum", thousands: "thousands_sum", ten_thousands: "ten_thousands_sum", hundred_thousands: "hundred_thousands_sum", millions: "millions_sum" } as Record<AdditionColumn, AdditionStep>)[column];
+}
+function carryTargetColumnForStep(step: AdditionStep): Exclude<AdditionColumn, "ones"> | undefined {
+  return ({ carry_to_tens: "tens", carry_to_hundreds: "hundreds", carry_to_thousands: "thousands", carry_to_ten_thousands: "ten_thousands", carry_to_hundred_thousands: "hundred_thousands", carry_to_millions: "millions" } as Partial<Record<AdditionStep, Exclude<AdditionColumn, "ones">>>)[step];
+}
+function placeLabel(column: AdditionColumn): string { return ({ ones: "Einer", tens: "Zehner", hundreds: "Hunderter", thousands: "Tausender", ten_thousands: "Zehntausender", hundred_thousands: "Hunderttausender", millions: "Millionen" })[column]; }
 
 function guidedStepAt(task: AdditionTask, stepIndex: number): AdditionStep | undefined {
   return getAdditionBuildSteps(task)[stepIndex]?.step;
