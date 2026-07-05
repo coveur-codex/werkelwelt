@@ -291,7 +291,7 @@ function randomOperandsForDifficulty(difficultyClass: AdditionDifficultyClass): 
     case "A8_THREE_DIGIT_MULTIPLE_CARRIES": return [randomInt(500, 999), randomInt(500, 999)];
     case "A9_WITH_INNER_ZERO": return [randomInt(101, 909), randomInt(1, 90)];
     case "A10_THOUSANDS_NO_CARRY": return [randomNoCarryNumber(4), randomNoCarryNumber(4)];
-    case "A11_THOUSANDS_WITH_CARRY": return [randomInt(1000, 8999), randomInt(1000, 8999)];
+    case "A11_THOUSANDS_WITH_CARRY": return randomThousandsOperandsWithCarry();
     case "A12_TEN_THOUSANDS": return [randomInt(10000, 89999), randomInt(0, 9999)];
     case "A13_HUNDRED_THOUSANDS": { const left = randomInt(100000, 899999); return [left, randomInt(0, Math.min(99999, 999999 - left))]; }
     case "A14_UP_TO_ONE_MILLION": { const left = randomInt(500000, 999999); return [left, randomInt(1000000 - left, 1000000 - left)]; }
@@ -302,9 +302,19 @@ function fixedOperandsForDifficulty(difficultyClass: AdditionDifficultyClass): A
   const examples: Record<AdditionDifficultyClass, Array<[number, number]>> = {
     A1_SINGLE_DIGIT_NO_CARRY: [[3, 4]], A2_SINGLE_DIGIT_WITH_CARRY: [[8, 7]], A3_TWO_DIGIT_NO_CARRY: [[23, 41]], A4_TWO_DIGIT_ONE_CARRY: [[48, 27]], A5_TWO_DIGIT_RESULT_EXPANDS: [[95, 17]],
     A6_THREE_DIGIT_NO_CARRY: [[123, 456]], A7_THREE_DIGIT_ONE_CARRY: [[176, 291]], A8_THREE_DIGIT_MULTIPLE_CARRIES: [[395, 287]], A9_WITH_INNER_ZERO: [[105, 24]],
-    A10_THOUSANDS_NO_CARRY: [[1234, 4321]], A11_THOUSANDS_WITH_CARRY: [[5678, 2345]], A12_TEN_THOUSANDS: [[23456, 12345]], A13_HUNDRED_THOUSANDS: [[210164, 773148]], A14_UP_TO_ONE_MILLION: [[999999, 1]],
+    A10_THOUSANDS_NO_CARRY: [[1234, 4321]], A11_THOUSANDS_WITH_CARRY: [[2345, 3219], [4321, 2569], [1207, 3408], [1489, 2316], [4678, 3125], [5890, 2345]], A12_TEN_THOUSANDS: [[23456, 12345]], A13_HUNDRED_THOUSANDS: [[210164, 773148]], A14_UP_TO_ONE_MILLION: [[999999, 1]],
   };
   return examples[difficultyClass];
+}
+
+function randomThousandsOperandsWithCarry(): [number, number] {
+  const carryColumn = ["ones", "tens", "hundreds"][randomInt(0, 2)] as "ones" | "tens" | "hundreds";
+  const leftDigits = { thousands: randomInt(1, 4), hundreds: randomInt(0, 8), tens: randomInt(0, 8), ones: randomInt(0, 8) };
+  const rightDigits = { thousands: randomInt(1, Math.max(1, 8 - leftDigits.thousands)), hundreds: randomInt(0, 8), tens: randomInt(0, 8), ones: randomInt(0, 8) };
+  rightDigits[carryColumn] = randomInt(10 - leftDigits[carryColumn], 9);
+  const left = leftDigits.thousands * 1000 + leftDigits.hundreds * 100 + leftDigits.tens * 10 + leftDigits.ones;
+  const right = rightDigits.thousands * 1000 + rightDigits.hundreds * 100 + rightDigits.tens * 10 + rightDigits.ones;
+  return left + right < 10_000 ? [left, right] : randomThousandsOperandsWithCarry();
 }
 
 function randomNoCarryNumber(digits: 2 | 3 | 4): number {
