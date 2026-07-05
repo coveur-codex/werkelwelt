@@ -48,6 +48,10 @@ assert.notEqual(`${avoided.left}+${avoided.right}`, "3+4");
 assert.equal(analyzeAdditionTask(avoided.left, avoided.right).difficultyClass, "A1_SINGLE_DIGIT_NO_CARRY");
 const inner = generateAdditionSuggestion({ requireInnerZero: true, maxDigits: 3 });
 assert.equal(analyzeAdditionTask(inner.left, inner.right).containsInnerZero, true);
+for (const difficultyClass of additionDifficultyOrder) {
+  const suggestion = generateAdditionSuggestion({ allowedDifficultyClasses: [difficultyClass] });
+  assert.equal(analyzeAdditionTask(suggestion.left, suggestion.right).difficultyClass, difficultyClass);
+}
 
 let states = updateAdditionSkillStates([], [{ event_type: "correct_partial_step", step: "ones_sum" }]);
 assert.equal(states.find(s=>s.skillKey==="add.ones_sum")?.status, "guided_success");
