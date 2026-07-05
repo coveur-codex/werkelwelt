@@ -78,6 +78,16 @@ for (const difficultyClass of additionDifficultyOrder) {
   assert.equal(analyzeAdditionTask(suggestion.left, suggestion.right).difficultyClass, difficultyClass);
 }
 
+const noCarryHundreds = generateAdditionSuggestion({ allowedDifficultyClasses: ["A6_THREE_DIGIT_NO_CARRY"], avoidRecentTasks: [{ left: 123, right: 456 }] });
+assert.equal(analyzeAdditionTask(noCarryHundreds.left, noCarryHundreds.right).difficultyClass, "A6_THREE_DIGIT_NO_CARRY");
+assert.notEqual(`${noCarryHundreds.left}+${noCarryHundreds.right}`, "123+456");
+const hundredThousands = generateAdditionSuggestion({ allowedDifficultyClasses: ["A13_HUNDRED_THOUSANDS"], avoidRecentTasks: [{ left: 210164, right: 773148 }] });
+assert.equal(analyzeAdditionTask(hundredThousands.left, hundredThousands.right).difficultyClass, "A13_HUNDRED_THOUSANDS");
+assert.notEqual(`${hundredThousands.left}+${hundredThousands.right}`, "210164+773148");
+const upToMillion = generateAdditionSuggestion({ allowedDifficultyClasses: ["A14_UP_TO_ONE_MILLION"], avoidRecentTasks: [{ left: 999999, right: 1 }] });
+assert.equal(analyzeAdditionTask(upToMillion.left, upToMillion.right).difficultyClass, "A14_UP_TO_ONE_MILLION");
+assert.notEqual(`${upToMillion.left}+${upToMillion.right}`, "999999+1");
+
 let states = updateAdditionSkillStates([], [{ event_type: "correct_partial_step", step: "ones_sum" }]);
 assert.equal(states.find(s=>s.skillKey==="add.ones_sum")?.status, "guided_success");
 states = updateAdditionSkillStates(states, [{ event_type: "help_requested", step: "carry_to_tens" }]);
