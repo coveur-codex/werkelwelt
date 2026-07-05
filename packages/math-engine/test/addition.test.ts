@@ -113,6 +113,21 @@ assert.notEqual(`${hundredThousands.left}+${hundredThousands.right}`, "210164+77
 const upToMillion = generateAdditionSuggestion({ allowedDifficultyClasses: ["A14_UP_TO_ONE_MILLION"], avoidRecentTasks: [{ left: 999999, right: 1 }] });
 assert.equal(analyzeAdditionTask(upToMillion.left, upToMillion.right).difficultyClass, "A14_UP_TO_ONE_MILLION");
 assert.notEqual(`${upToMillion.left}+${upToMillion.right}`, "999999+1");
+const thousandsWithCarryAvoidingExamples = generateAdditionSuggestion({
+  allowedDifficultyClasses: ["A11_THOUSANDS_WITH_CARRY"],
+  avoidRecentTasks: [
+    { left: 2345, right: 3219 },
+    { left: 4321, right: 2569 },
+    { left: 1207, right: 3408 },
+    { left: 1489, right: 2316 },
+    { left: 4678, right: 3125 },
+    { left: 5890, right: 2345 },
+  ],
+});
+assert.equal(analyzeAdditionTask(thousandsWithCarryAvoidingExamples.left, thousandsWithCarryAvoidingExamples.right).difficultyClass, "A11_THOUSANDS_WITH_CARRY");
+assert.ok(thousandsWithCarryAvoidingExamples.left >= 1000 || thousandsWithCarryAvoidingExamples.right >= 1000);
+assert.ok(thousandsWithCarryAvoidingExamples.result < 10000);
+
 
 let states = updateAdditionSkillStates([], [{ event_type: "correct_partial_step", step: "ones_sum" }]);
 assert.equal(states.find(s=>s.skillKey==="add.ones_sum")?.status, "guided_success");
