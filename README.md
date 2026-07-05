@@ -93,3 +93,30 @@ docker compose -f compose.dev.yml run --rm api npm run db:migrate
 ## Architekturhinweis
 
 `packages/math-engine` soll deterministisch, gut testbar und unabhängig vom UI bleiben. Die Math Engine darf keine Abhängigkeit auf Frontend-Komponenten, Browser-APIs oder visuelle Darstellung haben, damit Aufgabenlogik reproduzierbar und in API, Worker sowie Tests wiederverwendbar bleibt.
+
+## Nutzerverwaltung im MVP
+
+Die Web-App enthält einen lokalen MVP für Authentifizierung, Rollen und Kinderprofile. Die Daten liegen während dieser Phase im Browser-`localStorage`; Passwörter werden dabei nicht im Klartext, sondern per PBKDF2-SHA-256 mit Salt gespeichert. Die Repository-Schicht in `apps/web/src/lib` trennt Nutzer-, Familien-, Lern- und Punkte-Daten so, dass eine spätere PostgreSQL-Anbindung möglich bleibt.
+
+### Ersten Admin lokal anlegen
+
+Für lokale Entwicklung kann der erste Admin über Beispiel-Environment-Variablen vorbereitet werden. Lege dafür eine nicht eingecheckte `.env.local` in `apps/web` oder im Startkontext an:
+
+```bash
+NEXT_PUBLIC_INITIAL_ADMIN_EMAIL=admin@example.test
+NEXT_PUBLIC_INITIAL_ADMIN_PASSWORD=change-me
+NEXT_PUBLIC_INITIAL_ADMIN_NAME=Admin
+```
+
+Beim Öffnen von `/login` wird dieser Admin angelegt, falls im lokalen Browser noch kein Admin existiert. Die Werte in `.env.example` sind nur Beispiele und keine produktiven Zugangsdaten.
+
+### Lokaler Ablauf
+
+1. App starten: `npm run dev` oder `docker compose -f compose.dev.yml up --build`.
+2. `/login` öffnen und mit dem initialen Admin anmelden.
+3. Im Adminbereich `/admin` ein Elternprofil mit Name, E-Mail und initialem Passwort anlegen.
+4. Abmelden und als Elternkonto auf `/login` anmelden.
+5. Im Elternbereich `/parent` ein Kindprofil anlegen und auswählen.
+6. Die Plus-Werkstatt über `/kind/addition` starten; Lernereignisse, Werkelpunkte und Lernstände werden dem aktiven Kindprofil zugeordnet.
+
+Kinderprofile haben keine E-Mail-Adresse, kein Passwort und kein eigenes Login. Eltern sehen nur die Kinder, die mit ihrem Elternkonto verknüpft sind. Der Adminbereich ist auf Admin-Konten beschränkt.

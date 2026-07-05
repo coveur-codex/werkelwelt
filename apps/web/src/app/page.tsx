@@ -2,12 +2,12 @@ const areas = [
   {
     title: "Kindbereich",
     text: "Starte die Plus-Werkstatt für schriftliche Addition mit Übertrag.",
-    href: "/kind/addition",
+    href: "/login",
   },
   {
     title: "Elternbereich",
     text: "Sieh die letzten Lernereignisse und sanfte Zusammenfassungen.",
-    href: "/parent/events",
+    href: "/parent",
   },
   {
     title: "Aufgabe vorführen",

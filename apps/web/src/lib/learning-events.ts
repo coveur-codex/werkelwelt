@@ -13,7 +13,7 @@ export const DEFAULT_CHILD_PROFILE_ID = "local-test-child";
 export type SessionMood = "easy" | "ok" | "hard" | "too_much";
 export type LearningSession = { id: string; childProfileId: string; operation: "addition"; status: "active" | "completed" | "abandoned"; plannedTaskCount: number; completedTaskCount: number; startedAt: string; completedAt?: string | undefined; mood?: SessionMood | undefined; metadata?: Record<string, unknown> | undefined };
 export type ParentAccount = { id: string; email?: string; displayName: string; createdAt: string };
-export type ChildProfile = { id: string; parentAccountId: string; displayName: string; avatarKey?: string; createdAt: string; currentPoints: number };
+export type ChildProfile = { id: string; parentAccountId: string; displayName: string; avatarKey?: string; createdAt: string; updatedAt?: string; isActive: boolean; currentPoints: number };
 export type RewardEvent = EngineRewardEvent;
 export interface FamilyState { parent: ParentAccount; children: ChildProfile[]; activeChildProfileId?: string; }
 
@@ -26,16 +26,19 @@ function writeJson<T>(key: string, value: T) { window.localStorage.setItem(key, 
 function emit() { window.dispatchEvent(new Event("werkelwelt-learning-events")); window.dispatchEvent(new Event("werkelwelt-family")); }
 
 export function getFamilyState(): FamilyState {
-  const seeded: FamilyState = { parent: { id: MOCK_PARENT_ACCOUNT_ID, displayName: "Test-Elternkonto", createdAt: "2026-01-01T00:00:00.000Z" }, children: [{ id: DEFAULT_CHILD_PROFILE_ID, parentAccountId: MOCK_PARENT_ACCOUNT_ID, displayName: "Testkind", avatarKey: "spark", createdAt: "2026-01-01T00:00:00.000Z", currentPoints: 0 }], activeChildProfileId: DEFAULT_CHILD_PROFILE_ID };
+  const seeded: FamilyState = { parent: { id: MOCK_PARENT_ACCOUNT_ID, displayName: "Test-Elternkonto", createdAt: "2026-01-01T00:00:00.000Z" }, children: [], activeChildProfileId: DEFAULT_CHILD_PROFILE_ID };
   const state = readJson<FamilyState>(FAMILY_KEY, seeded);
   const rewards = listRewardEvents();
-  const children = state.children.map((child) => ({ ...child, currentPoints: sumRewardPoints(rewards.filter((reward) => reward.childProfileId === child.id)) }));
+  const children = state.children.map((child) => ({ ...child, isActive: child.isActive ?? true, currentPoints: sumRewardPoints(rewards.filter((reward) => reward.childProfileId === child.id)) }));
   return { ...state, children };
 }
 export function saveFamilyState(state: FamilyState) { writeJson(FAMILY_KEY, state); emit(); }
-export function addChildProfile(displayName: string): ChildProfile { const state = getFamilyState(); const child: ChildProfile = { id: crypto.randomUUID(), parentAccountId: state.parent.id, displayName, createdAt: new Date().toISOString(), currentPoints: 0 }; saveFamilyState({ ...state, children: [...state.children, child], activeChildProfileId: child.id }); return child; }
+export function addChildProfile(displayName: string, parentAccountId?: string): ChildProfile { const state = getFamilyState(); const now = new Date().toISOString(); const child: ChildProfile = { id: crypto.randomUUID(), parentAccountId: parentAccountId ?? state.parent.id, displayName, createdAt: now, updatedAt: now, isActive: true, currentPoints: 0 }; saveFamilyState({ ...state, children: [...state.children, child], activeChildProfileId: child.id }); return child; }
+export function updateChildProfile(childProfileId: string, input: { displayName?: string; isActive?: boolean }) { const state = getFamilyState(); const children = state.children.map((child) => child.id === childProfileId ? { ...child, ...input, updatedAt: new Date().toISOString() } : child); saveFamilyState({ ...state, children }); }
+export function getAllChildren() { return getFamilyState().children; }
+export function getChildrenForParent(parentAccountId: string) { return getFamilyState().children.filter((child) => child.parentAccountId === parentAccountId && child.isActive !== false); }
 export function selectChildProfile(childProfileId: string) { const state = getFamilyState(); saveFamilyState({ ...state, activeChildProfileId: childProfileId }); }
-export function getActiveChildProfile() { const state = getFamilyState(); return state.children.find((child) => child.id === state.activeChildProfileId); }
+export function getActiveChildProfile() { const state = getFamilyState(); return state.children.find((child) => child.id === state.activeChildProfileId && child.isActive !== false); }
 
 export function listLearningSessions(): LearningSession[] { return readJson<LearningSession[]>(SESSIONS_KEY, []); }
 export function saveLearningSession(session: LearningSession) { const sessions = [session, ...listLearningSessions().filter((item) => item.id !== session.id)].slice(0, 100); writeJson(SESSIONS_KEY, sessions); emit(); }
@@ -46,7 +49,7 @@ export function updateSessionAfterTask(sessionId: string) { const session = list
 export function listLearningEvents(): AdditionLearningEvent[] { return readJson<AdditionLearningEvent[]>(EVENTS_KEY, []); }
 export function listRewardEvents(): RewardEvent[] { return readJson<RewardEvent[]>(REWARDS_KEY, []); }
 export function recordLearningEvent(input: RecordLearningEventInput): AdditionLearningEvent {
-  const active = getActiveChildProfile(); const childProfileId = input.childProfileId ?? active?.id ?? DEFAULT_CHILD_PROFILE_ID;
+  const active = getActiveChildProfile(); const childProfileId = input.childProfileId ?? active?.id; if (!childProfileId) throw new Error("active_child_required");
   const event = { id: crypto.randomUUID(), child_profile_id: childProfileId, session_id: input.sessionId, created_at: new Date().toISOString(), operation: "addition", ...input } as AdditionLearningEvent;
   writeJson(EVENTS_KEY, [event, ...listLearningEvents()].slice(0, 500));
   const rewards = calculateRewardEventsForLearningEvent(event as any);
