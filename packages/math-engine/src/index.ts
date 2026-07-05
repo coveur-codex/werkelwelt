@@ -214,9 +214,10 @@ export function generateAdditionSuggestion(options: AdditionSuggestionOptions = 
   const directionClasses = difficultyClassesForDirection(options.currentDifficultyClass, options.direction);
   const effectiveAllowed = options.allowedDifficultyClasses ?? directionClasses;
   const currentOperandDigits = options.currentDifficultyClass ? operandDigitsForDifficulty(options.currentDifficultyClass) : undefined;
+  const allowedDigitRange = effectiveAllowed?.length ? digitRangeForDifficultyClasses(effectiveAllowed) : undefined;
   const maxResult = Math.min(options.maxResult ?? (options.allowResultAbove999 ? 1000 : ADDITION_MAX_RESULT), ADDITION_MAX_RESULT);
-  const minDigits = options.minDigits ?? (currentOperandDigits ?? (options.direction === "easier" ? 1 : 2));
-  const maxDigits = options.maxDigits ?? Math.min(7, Math.max(1, currentOperandDigits ?? 3) + (options.direction === "harder" ? 1 : 0)) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  const minDigits = options.minDigits ?? allowedDigitRange?.min ?? (currentOperandDigits ?? (options.direction === "easier" ? 1 : 2));
+  const maxDigits = options.maxDigits ?? allowedDigitRange?.max ?? Math.min(7, Math.max(1, currentOperandDigits ?? 3) + (options.direction === "harder" ? 1 : 0)) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
   const minValue = minDigits <= 1 ? 0 : 10 ** (minDigits - 1);
   const maxByDigits = Math.min(10 ** maxDigits - 1, options.maxValue ?? maxResult, maxResult);
   const avoid = new Set((options.avoidRecentTasks ?? []).map((t) => `${t.left}+${t.right}`));
@@ -247,6 +248,12 @@ function difficultyClassesForDirection(current: AdditionDifficultyClass | undefi
   if (direction === "easier") return [additionDifficultyOrder[Math.max(0, currentIndex - 1)]!, current];
   if (direction === "harder") return [current, additionDifficultyOrder[Math.min(additionDifficultyOrder.length - 1, currentIndex + 1)]!];
   return [current];
+}
+
+function digitRangeForDifficultyClasses(difficultyClasses: AdditionDifficultyClass[]): { min: 1 | 2 | 3 | 4 | 5 | 6 | 7; max: 1 | 2 | 3 | 4 | 5 | 6 | 7 } {
+  const min = Math.min(...difficultyClasses.map(operandDigitsForDifficulty)) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  const max = Math.max(...difficultyClasses.map((difficulty) => Math.max(operandDigitsForDifficulty(difficulty), visibleColumnsForDifficulty(difficulty)))) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  return { min, max };
 }
 
 function operandDigitsForDifficulty(difficulty: AdditionDifficultyClass): 1 | 2 | 3 | 4 | 5 | 6 {
