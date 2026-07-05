@@ -174,7 +174,7 @@ button.secondary { background: #e7dcc9; color: #31443b; }
   padding: .42rem .55rem;
 }
 .task-form { gap: .45rem; justify-content: center; }
-.task-form input { width: 5.5rem; max-width: 5.5rem; padding: .55rem .7rem; text-align: center; }
+.addition-controls .task-form input { width: 5.5rem; max-width: 5.5rem; padding: .55rem .7rem; text-align: center; }
 .input-plus { font-size: 1.4rem; font-weight: 900; color: #4f7d68; }
 .task-form button, .compact-modes button { min-height: 2.45rem; padding: .55rem .8rem; }
 .compact-modes { padding: .3rem; gap: .35rem; box-shadow: none; justify-content: flex-end; }
@@ -354,6 +354,8 @@ button.secondary { background: #e7dcc9; color: #31443b; }
 .stacked { flex-direction: column; align-items: stretch; }
 .stacked label { display: grid; gap: 0.35rem; font-weight: 700; }
 .stacked input, .task-form input { border: 2px solid #d8c7a1; border-radius: 0.75rem; padding: 0.75rem; font: inherit; }
+.stacked input { width: min(100%, 28rem); max-width: 100%; }
+.work-card > .task-form:not(.stacked) input, .area-card .task-form input { width: min(100%, 22rem); max-width: 100%; text-align: left; }
 .admin-table { display: grid; grid-template-columns: 1.2fr 1.4fr 0.7fr 0.8fr 1fr auto; gap: 0.75rem; align-items: center; overflow-x: auto; }
 .button-link { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 0.75rem 1rem; background: #285943; color: white; text-decoration: none; font-weight: 800; }
 .secondary, button.secondary { background: #f4ead7; color: #285943; border: 2px solid #d8c7a1; }
