@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { additionDifficultyOrder, analyzeAdditionTask, createAdditionTask, generateAdditionSuggestion, getVisibleColumns, getVisibleWrittenAdditionState, getVisibleWrittenAdditionStateForMode, updateAdditionSkillStates, validateAdditionStep, suggestAdditionTaskByDifficultyDirection, suggestNextAdditionTask, expectedValueForStep, type AdditionColumn, type AdditionStep } from "../src/index.js";
+import { additionDifficultyOrder, analyzeAdditionTask, createAdditionTask, generateAdditionSuggestion, getVisibleColumns, getVisibleWrittenAdditionState, getVisibleWrittenAdditionStateForMode, updateAdditionSkillStates, validateAdditionStep, suggestAdditionTaskByDifficultyDirection, suggestNextAdditionTask, expectedValueForStep, type AdditionColumn, type AdditionLearningEventLike, type AdditionStep } from "../src/index.js";
 
 const cases = [
   [3,4,7,["ones"],false,0,false],
@@ -71,6 +71,12 @@ assert.ok(analyzeAdditionTask(multi.left, multi.right).carryCount >= 2);
 const avoided = generateAdditionSuggestion({ minDigits: 1, maxDigits: 1, allowedDifficultyClasses: ["A1_SINGLE_DIGIT_NO_CARRY"], avoidRecentTasks: [{ left: 3, right: 4 }] });
 assert.notEqual(`${avoided.left}+${avoided.right}`, "3+4");
 assert.equal(analyzeAdditionTask(avoided.left, avoided.right).difficultyClass, "A1_SINGLE_DIGIT_NO_CARRY");
+
+const allSingleDigitNoCarryTasks = Array.from({ length: 10 }, (_, left) =>
+  Array.from({ length: 10 - left }, (_, right) => ({ left, right })),
+).flat();
+const exhaustedAvoidSuggestion = generateAdditionSuggestion({ allowedDifficultyClasses: ["A1_SINGLE_DIGIT_NO_CARRY"], avoidRecentTasks: allSingleDigitNoCarryTasks });
+assert.equal(analyzeAdditionTask(exhaustedAvoidSuggestion.left, exhaustedAvoidSuggestion.right).difficultyClass, "A1_SINGLE_DIGIT_NO_CARRY");
 const inner = generateAdditionSuggestion({ requireInnerZero: true, maxDigits: 3 });
 assert.equal(analyzeAdditionTask(inner.left, inner.right).containsInnerZero, true);
 for (const difficultyClass of additionDifficultyOrder) {
@@ -138,8 +144,13 @@ assert.ok(["with_help", "needs_repair"].includes(states.find(s=>s.skillKey==="ad
 states = updateAdditionSkillStates(states, [{ event_type: "repair_step_completed", repair_type: "bundling_ones_to_tens" }, { event_type: "session_mood_reported", mood: "hard" }]);
 assert.equal(states.find(s=>s.skillKey==="add.independent_practice")?.metadata_json?.lastMood, "hard");
 
-const conservative = suggestNextAdditionTask([], [{ event_type: "help_requested" }, { event_type: "repair_step_completed" }, { event_type: "session_mood_reported", mood: "too_much" }]);
+const conservativeEvents: AdditionLearningEventLike[] = [{ event_type: "help_requested" }, { event_type: "repair_step_completed" }, { event_type: "session_mood_reported", mood: "too_much" }];
+const conservative = suggestNextAdditionTask([], conservativeEvents);
 assert.ok(analyzeAdditionTask(conservative.left, conservative.right).visibleColumns.length <= 2);
+for (const difficultyClass of additionDifficultyOrder) {
+  const suggestion = suggestNextAdditionTask([], conservativeEvents, { allowedDifficultyClasses: [difficultyClass] });
+  assert.equal(analyzeAdditionTask(suggestion.left, suggestion.right).difficultyClass, difficultyClass);
+}
 const progress = suggestNextAdditionTask([], [{ event_type: "correct_partial_step" }, { event_type: "correct_partial_step" }, { event_type: "correct_partial_step" }, { event_type: "correct_partial_step" }]);
 assert.ok(progress.result <= 1_000_000);
 console.log("addition math-engine tests passed");
