@@ -131,7 +131,9 @@ button.secondary { background: #e7dcc9; color: #31443b; }
 
 .addition-app { height: 100dvh; max-width: 1280px; margin: 0 auto; padding: .55rem; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: .5rem; overflow: hidden; }
 .addition-workspace { display: grid; grid-template-rows: minmax(20rem, 1fr) auto; gap: .5rem; min-height: 0; overflow: hidden; }
-.addition-top { display: grid; grid-template-columns: minmax(12rem, .8fr) minmax(28rem, 1.2fr) auto; gap: .55rem; align-items: center; background: rgba(255,252,245,.94); border: 1px solid rgba(91,117,105,.16); border-radius: 18px; padding: .5rem .75rem; }
+.addition-top { display: grid; grid-template-columns: minmax(15rem, .75fr) minmax(24rem, 1.35fr) auto; gap: .65rem; align-items: center; background: rgba(255,252,245,.94); border: 1px solid rgba(91,117,105,.16); border-radius: 18px; padding: .5rem .75rem; }
+.addition-controls { align-items: center; display: grid; gap: .4rem; grid-template-columns: minmax(16rem, auto) minmax(15rem, 1fr); }
+.addition-controls .task-form { grid-column: 1 / -1; }
 .addition-title h1 { font-size: clamp(1.45rem, 3vw, 2.25rem); letter-spacing: -.04em; }
 .addition-title .eyebrow { margin-bottom: .2rem; }
 .addition-title p { margin: .1rem 0 0; color: #51645b; font-weight: 700; }
@@ -140,11 +142,11 @@ button.secondary { background: #e7dcc9; color: #31443b; }
   background: #edf5ed;
   border: 2px solid rgba(79, 125, 104, .22);
   border-radius: 16px;
-  display: inline-grid;
-  gap: .08rem;
-  margin-top: .45rem;
-  max-width: min(100%, 24rem);
-  padding: .45rem .7rem;
+  display: grid;
+  gap: .2rem;
+  margin: 0;
+  min-width: 0;
+  padding: .38rem .55rem;
 }
 .difficulty-badge span {
   color: #657a70;
@@ -154,15 +156,13 @@ button.secondary { background: #e7dcc9; color: #31443b; }
   letter-spacing: .08em;
   text-transform: uppercase;
 }
-.difficulty-badge strong { color: #17382d; font-size: 1rem; line-height: 1.1; }
-.difficulty-badge em { color: #385447; font-size: .86rem; font-style: normal; font-weight: 800; line-height: 1.2; }
 .difficulty-select-label {
   color: #31443b;
   display: grid;
   font-size: .78rem;
   font-weight: 900;
   gap: .25rem;
-  margin-top: .35rem;
+  margin-top: 0;
 }
 .difficulty-select-label select {
   background: #fffdf8;
@@ -230,7 +230,7 @@ button.secondary { background: #e7dcc9; color: #31443b; }
 @keyframes bundle-glow { 0% { transform: scale(.98); box-shadow: 0 0 0 rgba(225,182,93,0); } 45% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(225,182,93,.18); } 100% { transform: scale(1); box-shadow: 0 0 0 rgba(225,182,93,0); } }
 @keyframes bundle-fade { 0%,55% { opacity: 1; } 100% { opacity: .32; transform: scale(.82); } }
 @media (prefers-reduced-motion: reduce) { *, .bundle, .carry-badge, .digit-cell, .material { animation: none !important; transition: none !important; } }
-@media (max-width: 900px), (orientation: portrait) { .addition-top { grid-template-columns: 1fr; } .addition-workspace { grid-template-rows: minmax(24rem, 1fr) auto; overflow: auto; } .addition-grid { grid-template-columns: 1fr; min-height: 24rem; overflow: auto; } .written-addition, .place-board { min-height: 16rem; } .addition-app { height: 100dvh; } .orientation-note { display:block; background:#fff4cf; border-radius:18px; padding:1rem; } .step-panel { grid-template-columns:1fr; max-height: 14rem; overflow: auto; } }
+@media (max-width: 900px), (orientation: portrait) { .addition-top, .addition-controls { grid-template-columns: 1fr; } .addition-controls .task-form { grid-column: auto; } .addition-workspace { grid-template-rows: minmax(24rem, 1fr) auto; overflow: auto; } .addition-grid { grid-template-columns: 1fr; min-height: 24rem; overflow: auto; } .written-addition, .place-board { min-height: 16rem; } .addition-app { height: 100dvh; } .orientation-note { display:block; background:#fff4cf; border-radius:18px; padding:1rem; } .step-panel { grid-template-columns:1fr; max-height: 14rem; overflow: auto; } }
 .practice-field {
   background: #f7f2e8;
   border: 2px solid transparent;
