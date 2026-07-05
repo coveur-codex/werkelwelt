@@ -156,6 +156,23 @@ button.secondary { background: #e7dcc9; color: #31443b; }
 }
 .difficulty-badge strong { color: #17382d; font-size: 1rem; line-height: 1.1; }
 .difficulty-badge em { color: #385447; font-size: .86rem; font-style: normal; font-weight: 800; line-height: 1.2; }
+.difficulty-select-label {
+  color: #31443b;
+  display: grid;
+  font-size: .78rem;
+  font-weight: 900;
+  gap: .25rem;
+  margin-top: .35rem;
+}
+.difficulty-select-label select {
+  background: #fffdf8;
+  border: 2px solid rgba(79, 125, 104, .32);
+  border-radius: 12px;
+  color: #17382d;
+  font: inherit;
+  max-width: 100%;
+  padding: .42rem .55rem;
+}
 .task-form { gap: .45rem; justify-content: center; }
 .task-form input { width: 5.5rem; max-width: 5.5rem; padding: .55rem .7rem; text-align: center; }
 .input-plus { font-size: 1.4rem; font-weight: 900; color: #4f7d68; }
