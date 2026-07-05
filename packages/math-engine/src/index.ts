@@ -254,8 +254,63 @@ export function generateAdditionSuggestion(options: AdditionSuggestionOptions = 
     const right = randomInt(0, Math.min(maxByDigits, maxResult - left));
     if (matches(left, right) && (!preferCarry || Math.random() < 0.25 || analyzeAdditionTask(left, right).hasCarry)) return { operation: "addition", left, right, result: left + right };
   }
-  for (let left = minValue; left <= maxByDigits; left++) for (let right = 0; right <= Math.min(maxByDigits, maxResult - left); right++) if (matches(left, right)) return { operation: "addition", left, right, result: left + right };
+  for (const difficultyClass of effectiveAllowed ?? []) {
+    const candidate = generateCandidateForAdditionDifficulty(difficultyClass, matches);
+    if (candidate) return candidate;
+  }
+  const exhaustiveLimit = 100_000;
+  let checked = 0;
+  for (let left = minValue; left <= maxByDigits && checked < exhaustiveLimit; left++) {
+    for (let right = 0; right <= Math.min(maxByDigits, maxResult - left) && checked < exhaustiveLimit; right++, checked++) {
+      if (matches(left, right)) return { operation: "addition", left, right, result: left + right };
+    }
+  }
   throw new Error("NO_ADDITION_SUGGESTION_IN_SCOPE");
+}
+
+function generateCandidateForAdditionDifficulty(difficultyClass: AdditionDifficultyClass, matches: (left: number, right: number) => boolean): Pick<AdditionTask, "operation" | "left" | "right" | "result"> | undefined {
+  for (let i = 0; i < 1000; i++) {
+    const [left, right] = randomOperandsForDifficulty(difficultyClass);
+    if (matches(left, right)) return { operation: "addition", left, right, result: left + right };
+  }
+  for (const [left, right] of fixedOperandsForDifficulty(difficultyClass)) {
+    if (matches(left, right)) return { operation: "addition", left, right, result: left + right };
+  }
+  return undefined;
+}
+
+function randomOperandsForDifficulty(difficultyClass: AdditionDifficultyClass): [number, number] {
+  switch (difficultyClass) {
+    case "A1_SINGLE_DIGIT_NO_CARRY": { const left = randomInt(0, 9); return [left, randomInt(0, 9 - left)]; }
+    case "A2_SINGLE_DIGIT_WITH_CARRY": { const left = randomInt(1, 9); return [left, randomInt(Math.max(10 - left, 1), 9)]; }
+    case "A3_TWO_DIGIT_NO_CARRY": return [randomNoCarryNumber(2), randomNoCarryNumber(2)];
+    case "A4_TWO_DIGIT_ONE_CARRY": return [randomInt(10, 89), randomInt(10, 89)];
+    case "A5_TWO_DIGIT_RESULT_EXPANDS": { const left = randomInt(50, 99); return [left, randomInt(Math.max(100 - left, 10), 99)]; }
+    case "A6_THREE_DIGIT_NO_CARRY": return [randomNoCarryNumber(3), randomNoCarryNumber(3)];
+    case "A7_THREE_DIGIT_ONE_CARRY": return [randomInt(100, 899), randomInt(100, 899)];
+    case "A8_THREE_DIGIT_MULTIPLE_CARRIES": return [randomInt(500, 999), randomInt(500, 999)];
+    case "A9_WITH_INNER_ZERO": return [randomInt(101, 909), randomInt(1, 90)];
+    case "A10_THOUSANDS_NO_CARRY": return [randomNoCarryNumber(4), randomNoCarryNumber(4)];
+    case "A11_THOUSANDS_WITH_CARRY": return [randomInt(1000, 8999), randomInt(1000, 8999)];
+    case "A12_TEN_THOUSANDS": return [randomInt(10000, 89999), randomInt(0, 9999)];
+    case "A13_HUNDRED_THOUSANDS": { const left = randomInt(100000, 899999); return [left, randomInt(0, Math.min(99999, 999999 - left))]; }
+    case "A14_UP_TO_ONE_MILLION": { const left = randomInt(500000, 999999); return [left, randomInt(1000000 - left, 1000000 - left)]; }
+  }
+}
+
+function fixedOperandsForDifficulty(difficultyClass: AdditionDifficultyClass): Array<[number, number]> {
+  const examples: Record<AdditionDifficultyClass, Array<[number, number]>> = {
+    A1_SINGLE_DIGIT_NO_CARRY: [[3, 4]], A2_SINGLE_DIGIT_WITH_CARRY: [[8, 7]], A3_TWO_DIGIT_NO_CARRY: [[23, 41]], A4_TWO_DIGIT_ONE_CARRY: [[48, 27]], A5_TWO_DIGIT_RESULT_EXPANDS: [[95, 17]],
+    A6_THREE_DIGIT_NO_CARRY: [[123, 456]], A7_THREE_DIGIT_ONE_CARRY: [[176, 291]], A8_THREE_DIGIT_MULTIPLE_CARRIES: [[395, 287]], A9_WITH_INNER_ZERO: [[105, 24]],
+    A10_THOUSANDS_NO_CARRY: [[1234, 4321]], A11_THOUSANDS_WITH_CARRY: [[5678, 2345]], A12_TEN_THOUSANDS: [[23456, 12345]], A13_HUNDRED_THOUSANDS: [[210164, 773148]], A14_UP_TO_ONE_MILLION: [[999999, 1]],
+  };
+  return examples[difficultyClass];
+}
+
+function randomNoCarryNumber(digits: 2 | 3 | 4): number {
+  let value = randomInt(1, 4) * 10 ** (digits - 1);
+  for (let place = digits - 2; place >= 0; place--) value += randomInt(0, 4) * 10 ** place;
+  return value;
 }
 
 function difficultyClassesForDirection(current: AdditionDifficultyClass | undefined, direction: DifficultyDirection | undefined): AdditionDifficultyClass[] | undefined {
