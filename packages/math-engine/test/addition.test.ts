@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { additionDifficultyOrder, analyzeAdditionTask, createAdditionTask, generateAdditionSuggestion, getVisibleColumns, getVisibleWrittenAdditionState, getVisibleWrittenAdditionStateForMode, updateAdditionSkillStates, suggestAdditionTaskByDifficultyDirection, suggestNextAdditionTask } from "../src/index.js";
+import { additionDifficultyOrder, analyzeAdditionTask, createAdditionTask, generateAdditionSuggestion, getVisibleColumns, getVisibleWrittenAdditionState, getVisibleWrittenAdditionStateForMode, updateAdditionSkillStates, validateAdditionStep, suggestAdditionTaskByDifficultyDirection, suggestNextAdditionTask } from "../src/index.js";
 
 const cases = [
   [3,4,7,["ones"],false,0,false],
@@ -38,6 +38,31 @@ assert.equal(zeroCarryState.carries.tens, "0");
 assert.equal(zeroCarryState.result.tens, "6");
 assert.equal(zeroCarryState.carries.hundreds, "1");
 assert.equal(zeroCarryState.result.hundreds, "4");
+
+const largePractice = createAdditionTask(210164, 773148);
+const largeRevealed = getVisibleWrittenAdditionStateForMode(largePractice, "practice_mode", 0, {
+  ones_digit: "2",
+  carry_to_tens: "1",
+  tens_digit: "1",
+  carry_to_hundreds: "1",
+  hundreds_sum: "3",
+  carry_to_thousands: "0",
+  thousands_sum: "3",
+  carry_to_ten_thousands: "0",
+  ten_thousands_sum: "8",
+  carry_to_hundred_thousands: "0",
+  hundred_thousands_sum: "9",
+});
+assert.equal(validateAdditionStep(largePractice, "thousands_sum", 3).correct, true);
+assert.equal(validateAdditionStep(largePractice, "ten_thousands_sum", 8).correct, true);
+assert.equal(validateAdditionStep(largePractice, "hundred_thousands_sum", 9).correct, true);
+assert.equal(largeRevealed.result.thousands, "3");
+assert.equal(largeRevealed.result.ten_thousands, "8");
+assert.equal(largeRevealed.result.hundred_thousands, "9");
+assert.equal(largeRevealed.carries.thousands, "0");
+assert.equal(largeRevealed.carries.ten_thousands, "0");
+assert.equal(largeRevealed.carries.hundred_thousands, "0");
+
 
 for (let i = 0; i < 30; i++) assert.ok(generateAdditionSuggestion().result <= 1_000_000);
 for (let i = 0; i < 10; i++) { const carry = generateAdditionSuggestion({ requireCarry: true }); assert.equal(analyzeAdditionTask(carry.left, carry.right).hasCarry, true); }
