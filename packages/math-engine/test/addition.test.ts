@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { additionDifficultyOrder, analyzeAdditionTask, createAdditionTask, generateAdditionSuggestion, getVisibleColumns, getVisibleWrittenAdditionState, getVisibleWrittenAdditionStateForMode, updateAdditionSkillStates, validateAdditionStep, suggestAdditionTaskByDifficultyDirection, suggestNextAdditionTask } from "../src/index.js";
+import { additionDifficultyOrder, analyzeAdditionTask, createAdditionTask, generateAdditionSuggestion, getVisibleColumns, getVisibleWrittenAdditionState, getVisibleWrittenAdditionStateForMode, updateAdditionSkillStates, validateAdditionStep, suggestAdditionTaskByDifficultyDirection, suggestNextAdditionTask, expectedValueForStep, type AdditionColumn, type AdditionStep } from "../src/index.js";
 
 const cases = [
   [3,4,7,["ones"],false,0,false],
@@ -76,6 +76,32 @@ assert.equal(analyzeAdditionTask(inner.left, inner.right).containsInnerZero, tru
 for (const difficultyClass of additionDifficultyOrder) {
   const suggestion = generateAdditionSuggestion({ allowedDifficultyClasses: [difficultyClass] });
   assert.equal(analyzeAdditionTask(suggestion.left, suggestion.right).difficultyClass, difficultyClass);
+}
+
+const practiceStepsByColumn: Record<AdditionColumn, AdditionStep[]> = {
+  ones: ["ones_digit", "carry_to_tens"],
+  tens: ["tens_digit", "carry_to_hundreds"],
+  hundreds: ["hundreds_sum", "carry_to_thousands"],
+  thousands: ["thousands_sum", "carry_to_ten_thousands"],
+  ten_thousands: ["ten_thousands_sum", "carry_to_hundred_thousands"],
+  hundred_thousands: ["hundred_thousands_sum", "carry_to_millions"],
+  millions: ["millions_sum"],
+};
+
+for (const difficultyClass of additionDifficultyOrder) {
+  const suggestion = generateAdditionSuggestion({ allowedDifficultyClasses: [difficultyClass] });
+  const task = createAdditionTask(suggestion.left, suggestion.right);
+  const analysis = analyzeAdditionTask(task.left, task.right);
+  assert.equal(analysis.difficultyClass, difficultyClass);
+  const revealed: Partial<Record<AdditionStep, string>> = {};
+  for (const column of getVisibleColumns(task)) {
+    for (const step of practiceStepsByColumn[column] ?? []) revealed[step] = String(expectedValueForStep(task, step));
+  }
+  const state = getVisibleWrittenAdditionStateForMode(task, "practice_mode", 0, revealed);
+  assert.equal(state.columns.length, analysis.visibleColumns.length);
+  assert.equal(state.columns.map((column)=>state.result[column] ?? "").join(""), String(task.result));
+  const carryColumns = state.columns.filter((column): column is Exclude<AdditionColumn, "ones"> => column !== "ones");
+  for (const column of carryColumns) assert.notEqual(state.carries[column], undefined);
 }
 
 const noCarryHundreds = generateAdditionSuggestion({ allowedDifficultyClasses: ["A6_THREE_DIGIT_NO_CARRY"], avoidRecentTasks: [{ left: 123, right: 456 }] });
